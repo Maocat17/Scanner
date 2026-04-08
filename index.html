@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>錯題掃描器 - 流程優化版</title>
+    <title>錯題掃描器</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --primary-color: #0d5c52; --bg-gray: #f0f2f5; }
@@ -12,9 +12,15 @@
         .app-container { width: 100%; max-width: 900px; height: 100%; background: white; display: flex; flex-direction: column; position: relative; }
         
         .header { padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; flex-shrink: 0; }
-        .steps { display: flex; gap: 4px; }
-        .step-num { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #eee; color: #666; }
+        .steps { display: flex; gap: 8px; }
+        .step-num { 
+            width: 24px; height: 24px; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 12px; background: #eee; color: #666; 
+            cursor: pointer; transition: all 0.2s;
+        }
         .step-num.active { background: var(--primary-color); color: white; }
+        .step-num.clickable:hover { background: #ddd; }
         
         .content { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
         .page { display: none; width: 100%; height: 100%; padding: 10px; flex-direction: column; }
@@ -24,7 +30,6 @@
         canvas, img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .selection-box { position: absolute; border: 2px solid #2dbfb2; background: rgba(45,191,178,0.2); display: none; pointer-events: none; }
 
-        /* 控制項壓縮 */
         .controls-min { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; padding: 5px 0; }
         .btn-group-row { display: flex; gap: 8px; width: 100%; }
         
@@ -33,32 +38,35 @@
         input[type=range] { width: 100%; height: 20px; accent-color: var(--primary-color); }
 
         .footer { padding: 8px 0; display: flex; gap: 8px; flex-shrink: 0; }
-        .btn-secondary { background: #eee; border: none; padding: 10px; border-radius: 6px; flex: 1; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-secondary { background: #eee; border: none; padding: 10px; border-radius: 6px; flex: 1; cursor: pointer; font-weight: bold; font-size: 13px; color: #333; }
         .btn-primary { background: var(--primary-color); color: white; border: none; padding: 10px; border-radius: 6px; flex: 2; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
     </style>
 </head>
 <body>
 <div class="app-container">
     <div class="header">
-        <div class="steps">
-            <div class="step-num active">1</div>
-            <div class="step-num">2</div>
-            <div class="step-num">3</div>
-            <div class="step-num">4</div>
-            <div class="step-num">5</div>
+        <div class="steps" id="steps-container">
+            <div class="step-num active" data-step="1">1</div>
+            <div class="step-num" data-step="2">2</div>
+            <div class="step-num" data-step="3">3</div>
+            <div class="step-num" data-step="4">4</div>
+            <div class="step-num" data-step="5">5</div>
         </div>
-        <i class="fa-solid fa-rotate-left" style="cursor:pointer;" onclick="resetApp()"></i>
+        <i class="fa-solid fa-rotate-left" style="cursor:pointer; color:#666;" onclick="resetApp()"></i>
     </div>
     
     <div class="content">
+        <!-- 步驟 1: 上傳 -->
         <div id="page-1" class="page active">
-            <div style="flex:1; border:2px dashed #ccc; border-radius:15px; display:flex; flex-direction:column; justify-content:center; align-items:center;" onclick="document.getElementById('file-input').click()">
+            <div style="flex:1; border:2px dashed #ccc; border-radius:15px; display:flex; flex-direction:column; justify-content:center; align-items:center; cursor:pointer;" onclick="document.getElementById('file-input').click()">
                 <i class="fa-solid fa-cloud-arrow-up fa-2x" style="color:var(--primary-color);"></i>
-                <p>點擊上傳題目</p>
+                <p style="margin-top:10px; color:#666;">點擊上傳題目照片</p>
             </div>
             <input type="file" id="file-input" hidden accept="image/*">
         </div>
 
+        <!-- 步驟 2: 裁切 -->
         <div id="page-2" class="page">
             <div class="canvas-area" id="canvas-v2">
                 <img id="preview-img" src="" draggable="false">
@@ -66,10 +74,11 @@
             </div>
             <div class="footer">
                 <button class="btn-secondary" onclick="resetApp()">取消</button>
-                <button id="btn-next" class="btn-primary" onclick="goToRotate()" disabled>下一步</button>
+                <button id="btn-next" class="btn-primary" onclick="goToRotate()" disabled>選好了，下一步</button>
             </div>
         </div>
 
+        <!-- 步驟 3: 旋轉 -->
         <div id="page-3" class="page">
             <div class="canvas-area"><canvas id="rotate-canvas"></canvas></div>
             <div class="controls-min">
@@ -80,16 +89,17 @@
                 </div>
             </div>
             <div class="footer">
-                <button class="btn-secondary" onclick="switchPage(2)">返回</button>
+                <button class="btn-secondary" onclick="switchPage(2)">返回裁切</button>
                 <button class="btn-primary" onclick="goToEdit()">確定旋轉</button>
             </div>
         </div>
 
+        <!-- 步驟 4: 調整 -->
         <div id="page-4" class="page">
             <div class="canvas-area"><canvas id="editing-canvas"></canvas></div>
             <div class="controls-min">
                 <div class="slider-group">
-                    <div class="slider-label"><span>對比</span><span id="v-contrast">50</span></div>
+                    <div class="slider-label"><span>對比度</span><span id="v-contrast">50</span></div>
                     <input type="range" id="contrast" min="0" max="100" value="50">
                 </div>
                 <div class="slider-group">
@@ -97,66 +107,128 @@
                     <input type="range" id="brightness" min="0" max="100" value="60">
                 </div>
                 <div class="slider-group">
-                    <div class="slider-label"><span>飽和</span><span id="v-saturate">50</span></div>
+                    <div class="slider-label"><span>飽和度</span><span id="v-saturate">50</span></div>
                     <input type="range" id="saturate" min="0" max="100" value="50">
                 </div>
             </div>
             <div class="footer">
-                <button class="btn-secondary" onclick="switchPage(3)">返回</button>
+                <button class="btn-secondary" onclick="switchPage(3)">返回旋轉</button>
                 <button class="btn-primary" onclick="goToExport()">匯出檔案</button>
             </div>
         </div>
 
+        <!-- 步驟 5: 匯出 -->
         <div id="page-5" class="page">
-            <div style="display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto;">
-                <div style="text-align: center;"><img id="export-bw" style="border:1px solid #ddd; max-height: 200px;"><br><button class="btn-primary" style="width:100%" onclick="downloadImg('export-bw', 'BW.png')">下載黑白</button></div>
-                <div style="text-align: center;"><img id="export-color" style="border:1px solid #ddd; max-height: 200px;"><br><button class="btn-primary" style="width:100%" onclick="downloadImg('export-color', 'Color.png')">下載彩色</button></div>
+            <div style="display: flex; flex-direction: column; gap: 15px; flex: 1; overflow-y: auto; padding-bottom: 20px;">
+                <div style="text-align: center; background: #f9f9f9; padding: 10px; border-radius: 8px;">
+                    <p style="font-size: 12px; color: #666; margin-bottom: 8px;">清晰黑白版</p>
+                    <img id="export-bw" style="border:1px solid #ddd; max-height: 180px; width: auto;"><br>
+                    <button class="btn-primary" style="width:100%; margin-top: 8px;" onclick="downloadImg('export-bw', 'BW_Question.png')"><i class="fa-solid fa-download"></i> 下載黑白</button>
+                </div>
+                <div style="text-align: center; background: #f9f9f9; padding: 10px; border-radius: 8px;">
+                    <p style="font-size: 12px; color: #666; margin-bottom: 8px;">增強彩色版</p>
+                    <img id="export-color" style="border:1px solid #ddd; max-height: 180px; width: auto;"><br>
+                    <button class="btn-primary" style="width:100%; margin-top: 8px;" onclick="downloadImg('export-color', 'Color_Question.png')"><i class="fa-solid fa-download"></i> 下載彩色</button>
+                </div>
             </div>
-            <div class="footer"><button class="btn-secondary" style="width:100%" onclick="resetApp()">處理下一張</button></div>
+            <div class="footer" style="flex-direction: column;">
+                <div style="display:flex; gap:8px; width:100%;">
+                    <button class="btn-secondary" style="flex:1" onclick="switchPage(4)">返回編輯</button>
+                    <button class="btn-primary" style="flex:2" onclick="resetApp()">處理下一張</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    const fileInput = document.getElementById('file-input'), previewImg = document.getElementById('preview-img'), selection = document.getElementById('selection'), canvasV2 = document.getElementById('canvas-v2');
-    const rotateCanvas = document.getElementById('rotate-canvas'), editCanvas = document.getElementById('editing-canvas');
+    const fileInput = document.getElementById('file-input'), 
+          previewImg = document.getElementById('preview-img'), 
+          selection = document.getElementById('selection'), 
+          canvasV2 = document.getElementById('canvas-v2');
+    
+    const rotateCanvas = document.getElementById('rotate-canvas'), 
+          editCanvas = document.getElementById('editing-canvas');
+          
     let isDrawing = false, startX, startY;
-    window.rawCropData = null; // 儲存裁切後的原始數據
+    let currentStep = 1;
+    window.rawCropData = null;
 
+    // 切換頁面與步驟狀態
     function switchPage(n) {
+        currentStep = n;
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(`page-${n}`).classList.add('active');
-        document.querySelectorAll('.step-num').forEach((s, i) => s.className = i+1 <= n ? 'step-num active' : 'step-num');
+        
+        document.querySelectorAll('.step-num').forEach((s, i) => {
+            const stepIdx = i + 1;
+            s.classList.remove('active', 'clickable');
+            if (stepIdx <= n) {
+                s.classList.add('active');
+                // 只有小於目前步驟的才標記為可點擊（往回跳）
+                if (stepIdx < n) s.classList.add('clickable');
+            }
+        });
     }
 
-    function resetApp() { fileInput.value = ""; previewImg.src = ""; selection.style.display = 'none'; document.getElementById('btn-next').disabled = true; switchPage(1); }
+    // 步驟點擊事件：僅允許往回跳
+    document.querySelectorAll('.step-num').forEach(dot => {
+        dot.onclick = function() {
+            const targetStep = parseInt(this.getAttribute('data-step'));
+            if (targetStep < currentStep) {
+                switchPage(targetStep);
+            }
+        };
+    });
+
+    function resetApp() { 
+        fileInput.value = ""; 
+        previewImg.src = ""; 
+        selection.style.display = 'none'; 
+        document.getElementById('btn-next').disabled = true; 
+        switchPage(1); 
+    }
 
     fileInput.onchange = (e) => {
         if (e.target.files[0]) {
             const reader = new FileReader();
-            reader.onload = (ev) => { previewImg.src = ev.target.result; switchPage(2); };
+            reader.onload = (ev) => { 
+                previewImg.src = ev.target.result; 
+                switchPage(2); 
+            };
             reader.readAsDataURL(e.target.files[0]);
         }
     };
 
-    // 裁切邏輯 (同前)
+    // 裁切邏輯
     function handleStart(e) {
-        isDrawing = true; const r = canvasV2.getBoundingClientRect();
+        if (currentStep !== 2) return;
+        isDrawing = true; 
+        const r = canvasV2.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         startX = clientX - r.left; startY = clientY - r.top;
         selection.style.cssText = `display:block; left:${startX}px; top:${startY}px; width:0; height:0;`;
     }
+
     function handleMove(e) {
-        if (!isDrawing) return;
+        if (!isDrawing || currentStep !== 2) return;
         const r = canvasV2.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        let x = Math.max(0, Math.min(clientX - r.left, r.width)), y = Math.max(0, Math.min(clientY - r.top, r.height));
-        selection.style.left = Math.min(x, startX)+'px'; selection.style.top = Math.min(y, startY)+'px';
-        selection.style.width = Math.abs(x - startX)+'px'; selection.style.height = Math.abs(y - startY)+'px';
-        document.getElementById('btn-next').disabled = false;
+        let x = Math.max(0, Math.min(clientX - r.left, r.width)), 
+            y = Math.max(0, Math.min(clientY - r.top, r.height));
+            
+        selection.style.left = Math.min(x, startX)+'px'; 
+        selection.style.top = Math.min(y, startY)+'px';
+        selection.style.width = Math.abs(x - startX)+'px'; 
+        selection.style.height = Math.abs(y - startY)+'px';
+        
+        if (Math.abs(x - startX) > 10 && Math.abs(y - startY) > 10) {
+            document.getElementById('btn-next').disabled = false;
+        }
     }
+
     canvasV2.addEventListener('mousedown', handleStart);
     canvasV2.addEventListener('touchstart', handleStart);
     window.addEventListener('mousemove', handleMove);
@@ -164,7 +236,7 @@
     window.addEventListener('mouseup', () => isDrawing = false);
     window.addEventListener('touchend', () => isDrawing = false);
 
-    // 前往旋轉步驟
+    // 前往旋轉
     function goToRotate() {
         const r = canvasV2.getBoundingClientRect(), ir = previewImg.getBoundingClientRect();
         const sx = previewImg.naturalWidth / ir.width, sy = previewImg.naturalHeight / ir.height;
@@ -173,25 +245,29 @@
         const cw = parseFloat(selection.style.width) * sx, ch = parseFloat(selection.style.height) * sy;
         
         rotateCanvas.width = cw; rotateCanvas.height = ch;
-        rotateCanvas.getContext('2d').drawImage(previewImg, cx, cy, cw, ch, 0, 0, cw, ch);
+        const ctx = rotateCanvas.getContext('2d');
+        ctx.clearRect(0,0,cw,ch);
+        ctx.drawImage(previewImg, cx, cy, cw, ch, 0, 0, cw, ch);
         switchPage(3);
     }
 
     // 旋轉功能
     function doRotate(deg) {
-        const ctxR = rotateCanvas.getContext('2d');
         const off = document.createElement('canvas');
         if (Math.abs(deg) === 90) { off.width = rotateCanvas.height; off.height = rotateCanvas.width; }
         else { off.width = rotateCanvas.width; off.height = rotateCanvas.height; }
+        
         const oCtx = off.getContext('2d');
         oCtx.translate(off.width/2, off.height/2);
         oCtx.rotate(deg * Math.PI / 180);
         oCtx.drawImage(rotateCanvas, -rotateCanvas.width/2, -rotateCanvas.height/2);
-        rotateCanvas.width = off.width; rotateCanvas.height = off.height;
-        ctxR.drawImage(off, 0, 0);
+        
+        rotateCanvas.width = off.width; 
+        rotateCanvas.height = off.height;
+        rotateCanvas.getContext('2d').drawImage(off, 0, 0);
     }
 
-    // 前往調整步驟
+    // 前往調整
     function goToEdit() {
         editCanvas.width = rotateCanvas.width; editCanvas.height = rotateCanvas.height;
         editCanvas.getContext('2d').drawImage(rotateCanvas, 0, 0);
@@ -200,39 +276,63 @@
         applyFilters();
     }
 
-    // 調整功能
+    // 影像處理
     function applyFilters() {
         if (!window.rawCropData) return;
-        const valC = document.getElementById('contrast').value, valB = document.getElementById('brightness').value, valS = document.getElementById('saturate').value;
-        document.getElementById('v-contrast').innerText = valC; document.getElementById('v-brightness').innerText = valB; document.getElementById('v-saturate').innerText = valS;
+        const valC = document.getElementById('contrast').value, 
+              valB = document.getElementById('brightness').value, 
+              valS = document.getElementById('saturate').value;
+              
+        document.getElementById('v-contrast').innerText = valC; 
+        document.getElementById('v-brightness').innerText = valB; 
+        document.getElementById('v-saturate').innerText = valS;
         
         const contrast = (valC - 50) * 5.1, brightness = (valB - 50) * 4, saturate = valS / 50;
         const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
         const imgData = new ImageData(new Uint8ClampedArray(window.rawCropData.data), window.rawCropData.width, window.rawCropData.height);
         const d = imgData.data;
+        
         for (let i = 0; i < d.length; i += 4) {
-            for(let j=0; j<3; j++) { d[i+j] = factor * (d[i+j] + brightness - 128) + 128; }
+            for(let j=0; j<3; j++) { 
+                d[i+j] = factor * (d[i+j] + brightness - 128) + 128; 
+            }
             const gray = 0.2126 * d[i] + 0.7152 * d[i+1] + 0.0722 * d[i+2];
-            d[i] = gray + (d[i] - gray) * saturate; d[i+1] = gray + (d[i+1] - gray) * saturate; d[i+2] = gray + (d[i+2] - gray) * saturate;
+            d[i] = gray + (d[i] - gray) * saturate; 
+            d[i+1] = gray + (d[i+1] - gray) * saturate; 
+            d[i+2] = gray + (d[i+2] - gray) * saturate;
         }
         editCanvas.getContext('2d').putImageData(imgData, 0, 0);
     }
 
     ['contrast', 'brightness', 'saturate'].forEach(id => document.getElementById(id).oninput = applyFilters);
 
+    // 最後匯出
     function goToExport() {
         document.getElementById('export-color').src = editCanvas.toDataURL();
-        const bw = document.createElement('canvas'); bw.width = editCanvas.width; bw.height = editCanvas.height;
-        const bCtx = bw.getContext('2d'); const d = editCanvas.getContext('2d').getImageData(0,0,bw.width,bw.height);
+        
+        const bw = document.createElement('canvas'); 
+        bw.width = editCanvas.width; 
+        bw.height = editCanvas.height;
+        const bCtx = bw.getContext('2d'); 
+        const d = editCanvas.getContext('2d').getImageData(0,0,bw.width,bw.height);
+        
         for (let i = 0; i < d.data.length; i += 4) {
-            const v = (d.data[i] + d.data[i + 1] + d.data[i + 2]) / 3 < 127 ? 0 : 255;
+            // 二值化邏輯
+            const avg = (d.data[i] + d.data[i + 1] + d.data[i + 2]) / 3;
+            const v = avg < 127 ? 0 : 255;
             d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
         }
         bCtx.putImageData(d, 0, 0);
         document.getElementById('export-bw').src = bw.toDataURL();
         switchPage(5);
     }
-    function downloadImg(id, name) { const a = document.createElement('a'); a.href = document.getElementById(id).src; a.download = name; a.click(); }
+
+    function downloadImg(id, name) { 
+        const a = document.createElement('a'); 
+        a.href = document.getElementById(id).src; 
+        a.download = name; 
+        a.click(); 
+    }
 </script>
 </body>
 </html>
