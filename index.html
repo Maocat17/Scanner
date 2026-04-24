@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimum-scale=1.0">
     <title>錯題掃描器</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -208,7 +208,7 @@
             </div>
         </div>
 
-        <!-- 步驟 5: 塗鴉 -->
+        <!-- 步驟 5: 塗鴉（已大幅優化） -->
         <div id="page-5" class="page">
             <div class="canvas-area" id="drawing-canvas-container">
                 <canvas id="display-canvas"></canvas>
@@ -273,43 +273,49 @@
 </div>
 
 <script>
-    const fileInput = document.getElementById('file-input'), 
-          previewImg = document.getElementById('preview-img'), 
-          selection = document.getElementById('selection'), 
-          canvasV2 = document.getElementById('canvas-v2');
-    
-    const rotateCanvas = document.getElementById('rotate-canvas'), 
-          editCanvas = document.getElementById('editing-canvas');
-          
-    let isDrawing = false, startX, startY;
+    // ==================== 全域變數 ====================
+    const fileInput = document.getElementById('file-input');
+    const previewImg = document.getElementById('preview-img');
+    const selection = document.getElementById('selection');
+    const canvasV2 = document.getElementById('canvas-v2');
+
     let currentStep = 1;
     window.rawCropData = null;
 
-    // === 塗鴉步驟全域變數 ===
-    let drawingBaseCanvas = null;
-    let annotationCanvas = null;
-    let displayCanvas = null;
+    // 塗鴉相關變數
+    let drawingBaseCanvas = null;   // 調整後的底圖
+    let annotationCanvas = null;    // 塗鴉層（高解析）
+    let displayCanvas = null;       // 顯示用畫布（含 dpr）
+    let displayCtx = null;
+
     let currentScale = 1;
     let currentOffsetX = 0;
     let currentOffsetY = 0;
+
     let brushSize = 10;
     let eraserSize = 10;
     let currentColor = '#ffffff';
     let currentTool = 'brush';
+
     let isDrawingAnnotation = false;
     let isPanningMode = false;
     let lastLogicalX = 0, lastLogicalY = 0;
     let lastPanX = 0, lastPanY = 0;
     let lastTouchDistance = 0;
 
-    // 新增：可記憶的預設檔名（使用者重新命名後會永久更新，直到重置整個 App）
+    // Dirty Rectangle 優化
+    let dirtyRegion = null;
+    let renderPending = false;
+
+    // 高 DPI
+    let dpr = 1;
+
+    // 預設檔名
     let defaultColorName = 'Color_Question.png';
     let defaultBWName = 'BW_Question.png';
-
-    // 重新命名視窗用變數
     let pendingDownloadType = null;
 
-    // 切換頁面
+    // ==================== 通用函數 ====================
     function switchPage(n) {
         currentStep = n;
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -325,13 +331,6 @@
         });
     }
 
-    document.querySelectorAll('.step-num').forEach(dot => {
-        dot.onclick = function() {
-            const targetStep = parseInt(this.getAttribute('data-step'));
-            if (targetStep < currentStep) switchPage(targetStep);
-        };
-    });
-
     function resetApp() { 
         fileInput.value = ""; 
         previewImg.src = ""; 
@@ -344,6 +343,286 @@
         switchPage(1); 
     }
 
+    // 高 DPI Canvas 設定
+    function setupHighDPICanvas(canvas, logicalWidth, logicalHeight) {
+        dpr = window.devicePixelRatio || 1;
+        canvas.width = logicalWidth * dpr;
+        canvas.height = logicalHeight * dpr;
+        canvas.style.width = logicalWidth + 'px';
+        canvas.style.height = logicalHeight + 'px';
+        const ctx = canvas.getContext('2d', { alpha: true });
+        ctx.scale(dpr, dpr);
+        return ctx;
+    }
+
+    // ==================== 塗鴉核心優化函數 ====================
+    function expandDirty(x, y, w, h) {
+        const pad = 5; // 避免邊緣問題
+        x -= pad; y -= pad; w += pad*2; h += pad*2;
+        if (!dirtyRegion) {
+            dirtyRegion = {x: x, y: y, width: w, height: h};
+        } else {
+            const minX = Math.min(dirtyRegion.x, x);
+            const minY = Math.min(dirtyRegion.y, y);
+            const maxX = Math.max(dirtyRegion.x + dirtyRegion.width, x + w);
+            const maxY = Math.max(dirtyRegion.y + dirtyRegion.height, y + h);
+            dirtyRegion.x = minX;
+            dirtyRegion.y = minY;
+            dirtyRegion.width = maxX - minX;
+            dirtyRegion.height = maxY - minY;
+        }
+    }
+
+    function requestRender() {
+        if (renderPending) return;
+        renderPending = true;
+        requestAnimationFrame(() => {
+            renderDrawing();
+            renderPending = false;
+            // dirtyRegion 保留到下次 render 完成後清空（避免連續繪圖遺漏）
+        });
+    }
+
+    function renderDrawing() {
+        if (!displayCanvas || !drawingBaseCanvas || !annotationCanvas) return;
+        
+        displayCtx.save();
+        displayCtx.clearRect(0, 0, displayCanvas.width / dpr, displayCanvas.height / dpr);
+        
+        displayCtx.translate(currentOffsetX, currentOffsetY);
+        displayCtx.scale(currentScale, currentScale);
+
+        // 底圖（全畫）
+        displayCtx.drawImage(drawingBaseCanvas, 0, 0);
+
+        // 塗鴉層（只畫 dirty 區域，大幅提升效能）
+        if (dirtyRegion) {
+            const dr = dirtyRegion;
+            displayCtx.drawImage(
+                annotationCanvas,
+                dr.x, dr.y, dr.width, dr.height,
+                dr.x, dr.y, dr.width, dr.height
+            );
+        } else {
+            displayCtx.drawImage(annotationCanvas, 0, 0);
+        }
+
+        displayCtx.restore();
+    }
+
+    function getLogicalCoords(e) {
+        const rect = displayCanvas.getBoundingClientRect();
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        const mouseX = clientX - rect.left;
+        const mouseY = clientY - rect.top;
+        return {
+            x: (mouseX - currentOffsetX) / currentScale,
+            y: (mouseY - currentOffsetY) / currentScale
+        };
+    }
+
+    function drawInitialPoint(lx, ly) {
+        const aCtx = annotationCanvas.getContext('2d');
+        const size = currentTool === 'brush' ? brushSize : eraserSize;
+        
+        aCtx.save();
+        if (currentTool === 'brush') {
+            aCtx.globalCompositeOperation = 'source-over';
+            aCtx.fillStyle = currentColor;
+        } else {
+            aCtx.globalCompositeOperation = 'destination-out';
+        }
+        aCtx.beginPath();
+        aCtx.arc(lx, ly, size / 2, 0, Math.PI * 2);
+        aCtx.fill();
+        aCtx.restore();
+
+        expandDirty(lx - size, ly - size, size * 2, size * 2);
+        requestRender();
+    }
+
+    function drawStroke(x1, y1, x2, y2) {
+        const aCtx = annotationCanvas.getContext('2d');
+        const size = currentTool === 'brush' ? brushSize : eraserSize;
+        
+        aCtx.save();
+        aCtx.lineWidth = size;
+        aCtx.lineCap = 'round';
+        aCtx.lineJoin = 'round';
+        if (currentTool === 'brush') {
+            aCtx.strokeStyle = currentColor;
+            aCtx.globalCompositeOperation = 'source-over';
+        } else {
+            aCtx.globalCompositeOperation = 'destination-out';
+        }
+        aCtx.beginPath();
+        aCtx.moveTo(x1, y1);
+        aCtx.lineTo(x2, y2);
+        aCtx.stroke();
+        aCtx.restore();
+
+        const pad = size + 4;
+        const minX = Math.min(x1, x2) - pad;
+        const minY = Math.min(y1, y2) - pad;
+        const maxX = Math.max(x1, x2) + pad;
+        const maxY = Math.max(y1, y2) + pad;
+        expandDirty(minX, minY, maxX - minX, maxY - minY);
+
+        requestRender();
+    }
+
+    function setTool(tool) {
+        currentTool = tool;
+        document.getElementById('brush-btn').classList.remove('active-tool');
+        document.getElementById('eraser-btn').classList.remove('active-tool');
+        if (tool === 'brush') {
+            document.getElementById('brush-btn').classList.add('active-tool');
+            document.getElementById('size-slider').value = brushSize;
+        } else if (tool === 'eraser') {
+            document.getElementById('eraser-btn').classList.add('active-tool');
+            document.getElementById('size-slider').value = eraserSize;
+        }
+        document.getElementById('brush-size-label').innerText = `大小: ${document.getElementById('size-slider').value}px`;
+    }
+
+    function clearAnnotations() {
+        if (annotationCanvas) {
+            annotationCanvas.getContext('2d').clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+            dirtyRegion = null;
+            renderDrawing();
+        }
+    }
+
+    function setupDrawingEvents() {
+        const canvas = displayCanvas;
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 2) { // 右鍵平移
+                isPanningMode = true;
+                lastPanX = e.clientX;
+                lastPanY = e.clientY;
+                e.preventDefault();
+                return;
+            }
+            const pos = getLogicalCoords(e);
+            if (currentTool === 'brush' || currentTool === 'eraser') {
+                isDrawingAnnotation = true;
+                lastLogicalX = pos.x;
+                lastLogicalY = pos.y;
+                drawInitialPoint(pos.x, pos.y);
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDrawingAnnotation) {
+                const pos = getLogicalCoords(e);
+                drawStroke(lastLogicalX, lastLogicalY, pos.x, pos.y);
+                lastLogicalX = pos.x;
+                lastLogicalY = pos.y;
+            } else if (isPanningMode) {
+                const dx = e.clientX - lastPanX;
+                const dy = e.clientY - lastPanY;
+                currentOffsetX += dx;
+                currentOffsetY += dy;
+                lastPanX = e.clientX;
+                lastPanY = e.clientY;
+                renderDrawing();
+            }
+        });
+
+        const endMouse = () => { isDrawingAnnotation = false; isPanningMode = false; };
+        window.addEventListener('mouseup', endMouse);
+        canvas.addEventListener('mouseleave', endMouse);
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Wheel zoom
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const factor = e.deltaY < 0 ? 1.2 : 0.8;
+            const oldScale = currentScale;
+            currentScale *= factor;
+            currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
+            currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
+            renderDrawing();
+        });
+
+        // Touch events（行動裝置重點優化）
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                const pos = getLogicalCoords(e.touches[0]);
+                if (currentTool === 'brush' || currentTool === 'eraser') {
+                    isDrawingAnnotation = true;
+                    lastLogicalX = pos.x;
+                    lastLogicalY = pos.y;
+                    drawInitialPoint(pos.x, pos.y);
+                }
+            } else if (e.touches.length === 2) {
+                isPanningMode = true;
+                lastTouchDistance = getTouchDistance(e.touches);
+                const center = getTouchCenter(e.touches);
+                lastPanX = center.x;
+                lastPanY = center.y;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 1 && isDrawingAnnotation) {
+                const pos = getLogicalCoords(e.touches[0]);
+                drawStroke(lastLogicalX, lastLogicalY, pos.x, pos.y);
+                lastLogicalX = pos.x;
+                lastLogicalY = pos.y;
+            } else if (e.touches.length === 2 && isPanningMode) {
+                const center = getTouchCenter(e.touches);
+                const dx = center.x - lastPanX;
+                const dy = center.y - lastPanY;
+                currentOffsetX += dx;
+                currentOffsetY += dy;
+                lastPanX = center.x;
+                lastPanY = center.y;
+
+                const newDist = getTouchDistance(e.touches);
+                if (Math.abs(newDist - lastTouchDistance) > 8) {
+                    const factor = newDist / lastTouchDistance;
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = center.x - rect.left;
+                    const mouseY = center.y - rect.top;
+                    const oldScale = currentScale;
+                    currentScale *= factor;
+                    currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
+                    currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
+                    lastTouchDistance = newDist;
+                }
+                renderDrawing();
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            isDrawingAnnotation = false;
+            isPanningMode = false;
+        });
+    }
+
+    function getTouchDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function getTouchCenter(touches) {
+        return {
+            x: (touches[0].clientX + touches[1].clientX) / 2,
+            y: (touches[0].clientY + touches[1].clientY) / 2
+        };
+    }
+
+    // ==================== 步驟流程 ====================
     fileInput.onchange = (e) => {
         if (e.target.files[0]) {
             const reader = new FileReader();
@@ -355,7 +634,8 @@
         }
     };
 
-    // 裁切邏輯（不變）
+    // 裁切邏輯（維持不變）
+    let isDrawing = false, startX, startY;
     function handleStart(e) {
         if (currentStep !== 2) return;
         isDrawing = true; 
@@ -395,6 +675,7 @@
         const cx = (parseFloat(selection.style.left) - (ir.left - r.left)) * sx;
         const cy = (parseFloat(selection.style.top) - (ir.top - r.top)) * sy;
         const cw = parseFloat(selection.style.width) * sx, ch = parseFloat(selection.style.height) * sy;
+        const rotateCanvas = document.getElementById('rotate-canvas');
         rotateCanvas.width = cw; rotateCanvas.height = ch;
         const ctx = rotateCanvas.getContext('2d');
         ctx.clearRect(0,0,cw,ch);
@@ -403,9 +684,15 @@
     }
 
     function doRotate(deg) {
+        const rotateCanvas = document.getElementById('rotate-canvas');
         const off = document.createElement('canvas');
-        if (Math.abs(deg) === 90) { off.width = rotateCanvas.height; off.height = rotateCanvas.width; }
-        else { off.width = rotateCanvas.width; off.height = rotateCanvas.height; }
+        if (Math.abs(deg) === 90) { 
+            off.width = rotateCanvas.height; 
+            off.height = rotateCanvas.width; 
+        } else { 
+            off.width = rotateCanvas.width; 
+            off.height = rotateCanvas.height; 
+        }
         const oCtx = off.getContext('2d');
         oCtx.translate(off.width/2, off.height/2);
         oCtx.rotate(deg * Math.PI / 180);
@@ -416,7 +703,10 @@
     }
 
     function goToEdit() {
-        editCanvas.width = rotateCanvas.width; editCanvas.height = rotateCanvas.height;
+        const rotateCanvas = document.getElementById('rotate-canvas');
+        const editCanvas = document.getElementById('editing-canvas');
+        editCanvas.width = rotateCanvas.width; 
+        editCanvas.height = rotateCanvas.height;
         editCanvas.getContext('2d').drawImage(rotateCanvas, 0, 0);
         window.rawCropData = editCanvas.getContext('2d').getImageData(0, 0, editCanvas.width, editCanvas.height);
         switchPage(4);
@@ -446,18 +736,23 @@
             d[i+1] = gray + (d[i+1] - gray) * saturate; 
             d[i+2] = gray + (d[i+2] - gray) * saturate;
         }
-        editCanvas.getContext('2d').putImageData(imgData, 0, 0);
+        document.getElementById('editing-canvas').getContext('2d').putImageData(imgData, 0, 0);
     }
 
-    ['contrast', 'brightness', 'saturate'].forEach(id => document.getElementById(id).oninput = applyFilters);
+    ['contrast', 'brightness', 'saturate'].forEach(id => {
+        document.getElementById(id).oninput = applyFilters;
+    });
 
-    // ==================== 塗鴉功能 ====================
     function goToDrawing() {
+        const editCanvas = document.getElementById('editing-canvas');
+
+        // 建立高解析底圖
         drawingBaseCanvas = document.createElement('canvas');
         drawingBaseCanvas.width = editCanvas.width;
         drawingBaseCanvas.height = editCanvas.height;
         drawingBaseCanvas.getContext('2d').drawImage(editCanvas, 0, 0);
 
+        // 建立塗鴉層（與底圖同解析度）
         annotationCanvas = document.createElement('canvas');
         annotationCanvas.width = drawingBaseCanvas.width;
         annotationCanvas.height = drawingBaseCanvas.height;
@@ -468,23 +763,26 @@
         setTimeout(() => {
             const container = document.getElementById('drawing-canvas-container');
             displayCanvas = document.getElementById('display-canvas');
-            
-            displayCanvas.width = Math.max(300, container.clientWidth);
-            displayCanvas.height = Math.max(300, container.clientHeight);
 
+            // 設定顯示畫布大小（邏輯像素）
+            const logicalW = Math.max(300, container.clientWidth);
+            const logicalH = Math.max(300, container.clientHeight);
+            displayCtx = setupHighDPICanvas(displayCanvas, logicalW, logicalH);
+
+            // 計算初始縮放與位置（置中）
             const imgW = drawingBaseCanvas.width;
             const imgH = drawingBaseCanvas.height;
-            const dispW = displayCanvas.width;
-            const dispH = displayCanvas.height;
-            currentScale = Math.min(dispW / imgW, dispH / imgH);
-            currentOffsetX = (dispW - imgW * currentScale) / 2;
-            currentOffsetY = (dispH - imgH * currentScale) / 2;
+            currentScale = Math.min(logicalW / imgW, logicalH / imgH);
+            currentOffsetX = (logicalW - imgW * currentScale) / 2;
+            currentOffsetY = (logicalH - imgH * currentScale) / 2;
 
+            dirtyRegion = null;
             renderDrawing();
 
             currentTool = 'brush';
             setTool('brush');
 
+            // Slider 事件
             document.getElementById('size-slider').oninput = () => {
                 const val = parseInt(document.getElementById('size-slider').value);
                 if (currentTool === 'brush') brushSize = val;
@@ -497,245 +795,7 @@
             };
 
             setupDrawingEvents();
-        }, 30);
-    }
-
-    function renderDrawing() {
-        if (!displayCanvas || !drawingBaseCanvas || !annotationCanvas) return;
-        const ctx = displayCanvas.getContext('2d');
-        ctx.save();
-        ctx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-        ctx.translate(currentOffsetX, currentOffsetY);
-        ctx.scale(currentScale, currentScale);
-        ctx.drawImage(drawingBaseCanvas, 0, 0);
-        ctx.drawImage(annotationCanvas, 0, 0);
-        ctx.restore();
-    }
-
-    function getLogicalCoords(e) {
-        const rect = displayCanvas.getBoundingClientRect();
-        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-        const mouseX = clientX - rect.left;
-        const mouseY = clientY - rect.top;
-        return {
-            x: (mouseX - currentOffsetX) / currentScale,
-            y: (mouseY - currentOffsetY) / currentScale
-        };
-    }
-
-    function getLogicalCoordsForTouch(touch) {
-        const rect = displayCanvas.getBoundingClientRect();
-        const mouseX = touch.clientX - rect.left;
-        const mouseY = touch.clientY - rect.top;
-        return {
-            x: (mouseX - currentOffsetX) / currentScale,
-            y: (mouseY - currentOffsetY) / currentScale
-        };
-    }
-
-    function drawInitialPoint(lx, ly) {
-        const aCtx = annotationCanvas.getContext('2d');
-        const size = currentTool === 'brush' ? brushSize : eraserSize;
-        aCtx.save();
-        if (currentTool === 'brush') {
-            aCtx.globalCompositeOperation = 'source-over';
-            aCtx.fillStyle = currentColor;
-        } else {
-            aCtx.globalCompositeOperation = 'destination-out';
-        }
-        aCtx.beginPath();
-        aCtx.arc(lx, ly, size / 2, 0, Math.PI * 2);
-        aCtx.fill();
-        aCtx.restore();
-        renderDrawing();
-    }
-
-    function drawStroke(x1, y1, x2, y2) {
-        const aCtx = annotationCanvas.getContext('2d');
-        const size = currentTool === 'brush' ? brushSize : eraserSize;
-        aCtx.save();
-        aCtx.lineWidth = size;
-        aCtx.lineCap = 'round';
-        aCtx.lineJoin = 'round';
-        if (currentTool === 'brush') {
-            aCtx.strokeStyle = currentColor;
-            aCtx.globalCompositeOperation = 'source-over';
-        } else {
-            aCtx.globalCompositeOperation = 'destination-out';
-        }
-        aCtx.beginPath();
-        aCtx.moveTo(x1, y1);
-        aCtx.lineTo(x2, y2);
-        aCtx.stroke();
-        aCtx.restore();
-        renderDrawing();
-    }
-
-    function setTool(tool) {
-        currentTool = tool;
-        document.getElementById('brush-btn').classList.remove('active-tool');
-        document.getElementById('eraser-btn').classList.remove('active-tool');
-        if (tool === 'brush') {
-            document.getElementById('brush-btn').classList.add('active-tool');
-            document.getElementById('size-slider').value = brushSize;
-        } else if (tool === 'eraser') {
-            document.getElementById('eraser-btn').classList.add('active-tool');
-            document.getElementById('size-slider').value = eraserSize;
-        }
-        document.getElementById('brush-size-label').innerText = `大小: ${document.getElementById('size-slider').value}px`;
-    }
-
-    function clearAnnotations() {
-        if (annotationCanvas) {
-            annotationCanvas.getContext('2d').clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
-            renderDrawing();
-        }
-    }
-
-    function setupDrawingEvents() {
-        displayCanvas.addEventListener('mousedown', (e) => {
-            if (e.button === 2) {
-                isPanningMode = true;
-                lastPanX = e.clientX;
-                lastPanY = e.clientY;
-                e.preventDefault();
-                return;
-            }
-            const pos = getLogicalCoords(e);
-            if (currentTool === 'brush' || currentTool === 'eraser') {
-                isDrawingAnnotation = true;
-                lastLogicalX = pos.x;
-                lastLogicalY = pos.y;
-                drawInitialPoint(pos.x, pos.y);
-            }
-        });
-
-        displayCanvas.addEventListener('mousemove', (e) => {
-            if (isDrawingAnnotation) {
-                const pos = getLogicalCoords(e);
-                drawStroke(lastLogicalX, lastLogicalY, pos.x, pos.y);
-                lastLogicalX = pos.x;
-                lastLogicalY = pos.y;
-            } else if (isPanningMode) {
-                const dx = e.clientX - lastPanX;
-                const dy = e.clientY - lastPanY;
-                currentOffsetX += dx;
-                currentOffsetY += dy;
-                lastPanX = e.clientX;
-                lastPanY = e.clientY;
-                renderDrawing();
-            }
-        });
-
-        const endMouse = () => { isDrawingAnnotation = false; isPanningMode = false; };
-        window.addEventListener('mouseup', endMouse);
-        displayCanvas.addEventListener('mouseleave', endMouse);
-        displayCanvas.addEventListener('contextmenu', e => e.preventDefault());
-
-        displayCanvas.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const rect = displayCanvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            const factor = e.deltaY < 0 ? 1.2 : 0.8;
-            const oldScale = currentScale;
-            currentScale *= factor;
-            currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
-            currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
-            renderDrawing();
-        });
-
-        const keyHandler = (e) => {
-            if (currentStep !== 5) return;
-            if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
-                e.preventDefault();
-                zoomAtCenter(1.2);
-            } else if (e.ctrlKey && e.key === '-') {
-                e.preventDefault();
-                zoomAtCenter(0.8);
-            }
-        };
-        document.addEventListener('keydown', keyHandler);
-
-        function zoomAtCenter(factor) {
-            const centerX = displayCanvas.width / 2;
-            const centerY = displayCanvas.height / 2;
-            const oldScale = currentScale;
-            currentScale *= factor;
-            currentOffsetX = centerX - (centerX - currentOffsetX) * (currentScale / oldScale);
-            currentOffsetY = centerY - (centerY - currentOffsetY) * (currentScale / oldScale);
-            renderDrawing();
-        }
-
-        displayCanvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (e.touches.length === 1) {
-                const pos = getLogicalCoordsForTouch(e.touches[0]);
-                if (currentTool === 'brush' || currentTool === 'eraser') {
-                    isDrawingAnnotation = true;
-                    lastLogicalX = pos.x;
-                    lastLogicalY = pos.y;
-                    drawInitialPoint(pos.x, pos.y);
-                }
-            } else if (e.touches.length === 2) {
-                isPanningMode = true;
-                lastTouchDistance = getTouchDistance(e.touches);
-                const center = getTouchCenter(e.touches);
-                lastPanX = center.x;
-                lastPanY = center.y;
-            }
-        });
-
-        displayCanvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (e.touches.length === 1 && isDrawingAnnotation) {
-                const pos = getLogicalCoordsForTouch(e.touches[0]);
-                drawStroke(lastLogicalX, lastLogicalY, pos.x, pos.y);
-                lastLogicalX = pos.x;
-                lastLogicalY = pos.y;
-            } else if (e.touches.length === 2 && isPanningMode) {
-                const center = getTouchCenter(e.touches);
-                const dx = center.x - lastPanX;
-                const dy = center.y - lastPanY;
-                currentOffsetX += dx;
-                currentOffsetY += dy;
-                lastPanX = center.x;
-                lastPanY = center.y;
-
-                const newDist = getTouchDistance(e.touches);
-                if (Math.abs(newDist - lastTouchDistance) > 8) {
-                    const factor = newDist / lastTouchDistance;
-                    const rect = displayCanvas.getBoundingClientRect();
-                    const mouseX = center.x - rect.left;
-                    const mouseY = center.y - rect.top;
-                    const oldScale = currentScale;
-                    currentScale *= factor;
-                    currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
-                    currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
-                    lastTouchDistance = newDist;
-                }
-                renderDrawing();
-            }
-        });
-
-        displayCanvas.addEventListener('touchend', () => {
-            isDrawingAnnotation = false;
-            isPanningMode = false;
-        });
-
-        function getTouchDistance(touches) {
-            const dx = touches[0].clientX - touches[1].clientX;
-            const dy = touches[0].clientY - touches[1].clientY;
-            return Math.sqrt(dx * dx + dy * dy);
-        }
-
-        function getTouchCenter(touches) {
-            return {
-                x: (touches[0].clientX + touches[1].clientX) / 2,
-                y: (touches[0].clientY + touches[1].clientY) / 2
-            };
-        }
+        }, 50);
     }
 
     function goToExportFromDrawing() {
@@ -743,14 +803,17 @@
             switchPage(6);
             return;
         }
+
+        // 彩色版（含塗鴉）
         const finalColorCanvas = document.createElement('canvas');
         finalColorCanvas.width = drawingBaseCanvas.width;
         finalColorCanvas.height = drawingBaseCanvas.height;
         const fCtx = finalColorCanvas.getContext('2d');
         fCtx.drawImage(drawingBaseCanvas, 0, 0);
         fCtx.drawImage(annotationCanvas, 0, 0);
-        document.getElementById('export-color').src = finalColorCanvas.toDataURL();
+        document.getElementById('export-color').src = finalColorCanvas.toDataURL('image/png');
 
+        // 黑白版
         const bwCanvas = document.createElement('canvas');
         bwCanvas.width = finalColorCanvas.width;
         bwCanvas.height = finalColorCanvas.height;
@@ -763,26 +826,24 @@
             d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
         }
         bCtx.putImageData(d, 0, 0);
-        document.getElementById('export-bw').src = bwCanvas.toDataURL();
+        document.getElementById('export-bw').src = bwCanvas.toDataURL('image/png');
 
         switchPage(6);
     }
 
-    // ==================== 重新命名視窗功能 ====================
+    // ==================== 重新命名視窗 ====================
     function showRenameModal(type) {
         pendingDownloadType = type;
         const defaultName = type === 'color' ? defaultColorName : defaultBWName;
         const input = document.getElementById('rename-input');
         const clearBtn = document.getElementById('clear-input');
-
         input.value = defaultName;
 
-        // 設定即時清除按鈕顯示/隱藏
         const updateClearVisibility = () => {
             clearBtn.style.display = input.value.trim() ? 'block' : 'none';
         };
         input.oninput = updateClearVisibility;
-        updateClearVisibility();   // 初始狀態（預設名稱有內容 → 顯示 X）
+        updateClearVisibility();
 
         document.getElementById('rename-modal').style.display = 'flex';
     }
@@ -793,9 +854,8 @@
     }
 
     function clearRenameInput() {
-        document.getElementById('rename-input').value = '';
-        // 觸發 oninput 讓 X 消失
         const input = document.getElementById('rename-input');
+        input.value = '';
         if (input.oninput) input.oninput();
     }
 
@@ -803,27 +863,18 @@
         if (!pendingDownloadType) return;
         
         let inputVal = document.getElementById('rename-input').value.trim();
-        let filename;
+        let filename = inputVal || (pendingDownloadType === 'color' ? defaultColorName : defaultBWName);
 
-        if (!inputVal) {
-            // 使用目前預設名稱（不更新）
-            filename = pendingDownloadType === 'color' ? defaultColorName : defaultBWName;
-        } else {
-            // 使用者有輸入 → 更新預設名稱
-            filename = inputVal;
-            if (!filename.toLowerCase().endsWith('.png')) {
-                filename += '.png';
-            }
-            // 更新全域預設（下次開啟視窗就會顯示這個新名稱）
-            if (pendingDownloadType === 'color') {
-                defaultColorName = filename;
-            } else {
-                defaultBWName = filename;
-            }
+        if (!filename.toLowerCase().endsWith('.png')) {
+            filename += '.png';
+        }
+
+        if (inputVal) {
+            if (pendingDownloadType === 'color') defaultColorName = filename;
+            else defaultBWName = filename;
         }
 
         const id = pendingDownloadType === 'color' ? 'export-color' : 'export-bw';
-        
         const a = document.createElement('a'); 
         a.href = document.getElementById(id).src; 
         a.download = filename; 
@@ -831,6 +882,14 @@
         
         hideModal();
     }
+
+    // 步驟點擊
+    document.querySelectorAll('.step-num').forEach(dot => {
+        dot.onclick = function() {
+            const targetStep = parseInt(this.getAttribute('data-step'));
+            if (targetStep < currentStep) switchPage(targetStep);
+        };
+    });
 </script>
 </body>
 </html>
