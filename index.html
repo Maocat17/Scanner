@@ -1,53 +1,205 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimum-scale=1.0">
     <title>錯題掃描器</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root { --primary-color: #0d5c52; --bg-gray: #f0f2f5; }
-        * { box-sizing: border-box; -webkit-user-select: none; user-select: none; touch-action: none; }
-        body { font-family: sans-serif; background-color: var(--bg-gray); display: flex; justify-content: center; align-items: center; height: 100svh; margin: 0; overflow: hidden; }
-        .app-container { width: 100%; max-width: 900px; height: 100%; background: white; display: flex; flex-direction: column; position: relative; }
-        
-        .header { padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; flex-shrink: 0; }
-        .steps { display: flex; gap: 8px; }
-        .step-num { 
-            width: 24px; height: 24px; border-radius: 50%; 
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 12px; background: #eee; color: #666; 
-            cursor: pointer; transition: all 0.2s;
+        :root {
+            --primary-color: #0d5c52;
+            --bg-gray: #f0f2f5;
         }
-        .step-num.active { background: var(--primary-color); color: white; }
-        .step-num.clickable:hover { background: #ddd; }
-        
-        .content { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-        .page { display: none; width: 100%; height: 100%; padding: 10px; flex-direction: column; }
-        .page.active { display: flex; }
-        
-        .canvas-area { width: 100%; flex: 1; background: #222; border-radius: 8px; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-        canvas, img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
-        .selection-box { position: absolute; border: 2px solid #2dbfb2; background: rgba(45,191,178,0.2); display: none; pointer-events: none; }
+        * {
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
 
-        .controls-min { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; padding: 5px 0; }
-        .btn-group-row { display: flex; gap: 4px; width: 100%; align-items: center; flex-wrap: nowrap; }
-        
-        .slider-group { display: flex; flex-direction: column; gap: 0; }
-        .slider-label { display: flex; justify-content: space-between; font-size: 11px; color: #666; }
-        input[type=range] { width: 100%; height: 20px; accent-color: var(--primary-color); }
+        body {
+            font-family: sans-serif;
+            background-color: var(--bg-gray);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100svh;
+            margin: 0;
+            overflow: hidden;
+        }
 
-        .footer { padding: 8px 0; display: flex; gap: 8px; flex-shrink: 0; }
-        .btn-secondary { background: #eee; border: none; padding: 10px; border-radius: 6px; flex: 1; cursor: pointer; font-weight: bold; font-size: 13px; color: #333; }
-        .btn-primary { background: var(--primary-color); color: white; border: none; padding: 10px; border-radius: 6px; flex: 2; font-weight: bold; cursor: pointer; font-size: 13px; }
-        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            height: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .header {
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .steps {
+            display: flex;
+            gap: 8px;
+        }
+
+        .step-num {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            background: #eee;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .step-num.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .step-num.clickable:hover {
+            background: #ddd;
+        }
+
+        .content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page {
+            display: none;
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            flex-direction: column;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        .canvas-area {
+            width: 100%;
+            flex: 1;
+            background: #222;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas,
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .selection-box {
+            position: absolute;
+            border: 2px solid #2dbfb2;
+            background: rgba(45, 191, 178, 0.2);
+            display: none;
+            pointer-events: none;
+        }
+
+        .controls-min {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex-shrink: 0;
+            padding: 5px 0;
+        }
+
+        .btn-group-row {
+            display: flex;
+            gap: 4px;
+            width: 100%;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #666;
+        }
+
+        input[type=range] {
+            width: 100%;
+            height: 20px;
+            accent-color: var(--primary-color);
+        }
+
+        .footer {
+            padding: 8px 0;
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn-secondary {
+            background: #eee;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            flex: 1;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            flex: 2;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
 
         .btn-secondary.active-tool {
             background: var(--primary-color) !important;
             color: white !important;
         }
-        
+
         #color-picker {
             width: 40px;
             height: 40px;
@@ -73,24 +225,28 @@
             justify-content: center;
             align-items: center;
         }
+
         #rename-modal .modal-content {
             background: white;
             padding: 25px 20px;
             border-radius: 12px;
             width: 90%;
             max-width: 340px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             text-align: center;
         }
+
         #rename-modal h3 {
             margin: 0 0 15px;
             font-size: 17px;
             color: #333;
         }
+
         .rename-input-wrapper {
             position: relative;
             margin-bottom: 20px;
         }
+
         #rename-input {
             width: 100%;
             padding: 12px 45px 12px 15px;
@@ -99,6 +255,7 @@
             border-radius: 8px;
             outline: none;
         }
+
         #clear-input {
             position: absolute;
             right: 15px;
@@ -110,10 +267,12 @@
             line-height: 1;
             display: none;
         }
+
         #rename-modal .modal-buttons {
             display: flex;
             gap: 12px;
         }
+
         #rename-modal .modal-buttons button {
             flex: 1;
             padding: 13px;
@@ -123,773 +282,856 @@
             border: none;
             cursor: pointer;
         }
+
         #rename-modal .modal-buttons .btn-cancel {
             background: #eee;
             color: #333;
         }
+
         #rename-modal .modal-buttons .btn-download {
             background: var(--primary-color);
             color: white;
         }
+
+        .preset-btn {
+            background: #f0f2f5;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
+
 <body>
-<div class="app-container">
-    <div class="header">
-        <div class="steps" id="steps-container">
-            <div class="step-num active" data-step="1">1</div>
-            <div class="step-num" data-step="2">2</div>
-            <div class="step-num" data-step="3">3</div>
-            <div class="step-num" data-step="4">4</div>
-            <div class="step-num" data-step="5">5</div>
-            <div class="step-num" data-step="6">6</div>
-        </div>
-        <i class="fa-solid fa-rotate-left" style="cursor:pointer; color:#666;" onclick="resetApp()"></i>
-    </div>
-    
-    <div class="content">
-        <!-- 步驟 1: 上傳 -->
-        <div id="page-1" class="page active">
-            <div style="flex:1; border:2px dashed #ccc; border-radius:15px; display:flex; flex-direction:column; justify-content:center; align-items:center; cursor:pointer;" onclick="document.getElementById('file-input').click()">
-                <i class="fa-solid fa-cloud-arrow-up fa-2x" style="color:var(--primary-color);"></i>
-                <p style="margin-top:10px; color:#666;">點擊上傳題目照片</p>
+    <div class="app-container">
+        <div class="header">
+            <div class="steps" id="steps-container">
+                <div class="step-num active" data-step="1">1</div>
+                <div class="step-num" data-step="2">2</div>
+                <div class="step-num" data-step="3">3</div>
+                <div class="step-num" data-step="4">4</div>
+                <div class="step-num" data-step="5">5</div>
+                <div class="step-num" data-step="6">6</div>
             </div>
-            <input type="file" id="file-input" hidden accept="image/*">
+            <i class="fa-solid fa-rotate-left" style="cursor:pointer; color:#666;" onclick="resetApp()"></i>
         </div>
 
-        <!-- 步驟 2: 裁切 -->
-        <div id="page-2" class="page">
-            <div class="canvas-area" id="canvas-v2">
-                <img id="preview-img" src="" draggable="false">
-                <div id="selection" class="selection-box"></div>
+        <div class="content">
+            <!-- 步驟 1: 上傳 -->
+            <div id="page-1" class="page active">
+                <div style="flex:1; border:2px dashed #ccc; border-radius:15px; display:flex; flex-direction:column; justify-content:center; align-items:center; cursor:pointer;" onclick="document.getElementById('file-input').click()">
+                    <i class="fa-solid fa-cloud-arrow-up fa-2x" style="color:var(--primary-color);"></i>
+                    <p style="margin-top:10px; color:#666;">點擊上傳題目照片</p>
+                </div>
+                <input type="file" id="file-input" hidden accept="image/*">
             </div>
-            <div class="footer">
-                <button class="btn-secondary" onclick="resetApp()">取消</button>
-                <button id="btn-next" class="btn-primary" onclick="goToRotate()" disabled>選好了，下一步</button>
-            </div>
-        </div>
 
-        <!-- 步驟 3: 旋轉 -->
-        <div id="page-3" class="page">
-            <div class="canvas-area"><canvas id="rotate-canvas"></canvas></div>
-            <div class="controls-min">
-                <div class="btn-group-row">
-                    <button class="btn-secondary" onclick="doRotate(-90)"><i class="fa-solid fa-rotate-left"></i> 左 90°</button>
-                    <button class="btn-secondary" onclick="doRotate(90)"><i class="fa-solid fa-rotate-right"></i> 右 90°</button>
-                    <button class="btn-secondary" onclick="doRotate(180)">180°</button>
+            <!-- 步驟 2: 裁切 -->
+            <div id="page-2" class="page">
+                <div class="canvas-area" id="canvas-v2">
+                    <img id="preview-img" src="" draggable="false">
+                    <div id="selection" class="selection-box"></div>
+                </div>
+                <div class="footer">
+                    <button class="btn-secondary" onclick="resetApp()">取消</button>
+                    <button id="btn-next" class="btn-primary" onclick="goToRotate()" disabled>選好了，下一步</button>
                 </div>
             </div>
-            <div class="footer">
-                <button class="btn-secondary" onclick="switchPage(2)">返回裁切</button>
-                <button class="btn-primary" onclick="goToEdit()">確定旋轉</button>
-            </div>
-        </div>
 
-        <!-- 步驟 4: 調整 -->
-        <div id="page-4" class="page">
-            <div class="canvas-area"><canvas id="editing-canvas"></canvas></div>
-            <div class="controls-min">
-                <div class="slider-group">
-                    <div class="slider-label"><span>對比度</span><span id="v-contrast">0</span></div>
-                    <input type="range" id="contrast" min="-100" max="100" value="0">
+            <!-- 步驟 3: 旋轉 -->
+            <div id="page-3" class="page">
+                <div class="canvas-area"><canvas id="rotate-canvas"></canvas></div>
+                <div class="controls-min">
+                    <div class="btn-group-row">
+                        <button class="btn-secondary" onclick="doRotate(-90)"><i class="fa-solid fa-rotate-left"></i> 左 90°</button>
+                        <button class="btn-secondary" onclick="doRotate(90)"><i class="fa-solid fa-rotate-right"></i> 右 90°</button>
+                        <button class="btn-secondary" onclick="doRotate(180)">180°</button>
+                    </div>
                 </div>
-                <div class="slider-group">
-                    <div class="slider-label"><span>亮度</span><span id="v-brightness">0</span></div>
-                    <input type="range" id="brightness" min="-100" max="100" value="0">
-                </div>
-                <div class="slider-group">
-                    <div class="slider-label"><span>飽和度</span><span id="v-saturate">0</span></div>
-                    <input type="range" id="saturate" min="-100" max="100" value="0">
+                <div class="footer">
+                    <button class="btn-secondary" onclick="switchPage(2)">返回裁切</button>
+                    <button class="btn-primary" onclick="goToEdit()">確定旋轉</button>
                 </div>
             </div>
-            <div class="footer">
-                <button class="btn-secondary" onclick="switchPage(3)">返回旋轉</button>
-                <button class="btn-primary" onclick="goToDrawing()">下一步：塗鴉</button>
-            </div>
-        </div>
 
-        <!-- 步驟 5: 塗鴉（已大幅優化） -->
-        <div id="page-5" class="page">
-            <div class="canvas-area" id="drawing-canvas-container">
-                <canvas id="display-canvas"></canvas>
+            <!-- 步驟 4: 調整 -->
+            <div id="page-4" class="page">
+                <div class="canvas-area"><canvas id="editing-canvas"></canvas></div>
+                <div class="controls-min">
+                    <div class="slider-group">
+                        <div class="slider-label"><span>對比度</span><span id="v-contrast">0</span></div>
+                        <input type="range" id="contrast" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label"><span>亮度</span><span id="v-brightness">0</span></div>
+                        <input type="range" id="brightness" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label"><span>飽和度</span><span id="v-saturate">0</span></div>
+                        <input type="range" id="saturate" min="-100" max="100" value="0">
+                    </div>
+                </div>
+                <div class="footer">
+                    <button class="btn-secondary" onclick="switchPage(3)">返回旋轉</button>
+                    <button class="btn-primary" onclick="goToDrawing()">下一步：塗鴉</button>
+                </div>
             </div>
-            <div class="controls-min">
-                <div class="btn-group-row">
-                    <button id="brush-btn" onclick="setTool('brush')" style="flex:none; padding:8px 12px; font-size:20px;" class="btn-secondary active-tool"><i class="fa-solid fa-paintbrush"></i></button>
-                    <button id="eraser-btn" onclick="setTool('eraser')" style="flex:none; padding:8px 12px; font-size:20px;" class="btn-secondary"><i class="fa-solid fa-eraser"></i></button>
-                    <button onclick="clearAnnotations()" style="flex:none; padding:8px 12px; font-size:20px;" class="btn-secondary"><i class="fa-solid fa-trash"></i></button>
-                    
-                    <input type="color" id="color-picker" value="#ffffff">
-                    
-                    <div class="slider-group" style="flex:1; min-width:120px;">
-                        <div class="slider-label" style="font-size:10px; margin-bottom:2px;"><span id="brush-size-label">大小: 10px</span></div>
-                        <input type="range" id="size-slider" min="2" max="50" value="10" style="height:24px;">
+
+            <!-- 步驟 5: 塗鴉（已大幅優化） -->
+            <div id="page-5" class="page">
+                <div class="canvas-area" id="drawing-canvas-container">
+                    <canvas id="display-canvas"></canvas>
+                </div>
+                <div class="controls-min">
+                    <div class="btn-group-row">
+                        <button id="brush-btn" onclick="setTool('brush')" style="flex:none; padding:8px 12px; font-size:20px;" class="btn-secondary active-tool"><i class="fa-solid fa-paintbrush"></i></button>
+                        <button id="eraser-btn" onclick="setTool('eraser')" style="flex:none; padding:8px 12px; font-size:20px;" class="btn-secondary"><i class="fa-solid fa-eraser"></i></button>
+                        <button onclick="clearAnnotations()" style="flex:none; padding:8px 12px; font-size:20px;" class="btn-secondary"><i class="fa-solid fa-trash"></i></button>
+
+                        <input type="color" id="color-picker" value="#ffffff">
+
+                        <div class="slider-group" style="flex:1; min-width:120px;">
+                            <div class="slider-label" style="font-size:10px; margin-bottom:2px;"><span id="brush-size-label">大小: 10px</span></div>
+                            <input type="range" id="size-slider" min="2" max="50" value="10" style="height:24px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="footer">
+                    <button class="btn-secondary" onclick="switchPage(4)">返回調整</button>
+                    <button class="btn-primary" onclick="goToExportFromDrawing()">下一步：匯出</button>
+                </div>
+            </div>
+
+            <!-- 步驟 6: 匯出 -->
+            <div id="page-6" class="page">
+                <div style="display: flex; flex-direction: column; gap: 15px; flex: 1; overflow-y: auto; padding-bottom: 20px;">
+                    <div style="text-align: center; background: #f9f9f9; padding: 10px; border-radius: 8px;">
+                        <p style="font-size: 12px; color: #666; margin-bottom: 8px;">增強彩色版（含塗鴉）</p>
+                        <img id="export-color" style="border:1px solid #ddd; max-height: 180px; width: auto;"><br>
+                        <button class="btn-primary" style="width:100%; margin-top: 8px;" onclick="showRenameModal('color')"><i class="fa-solid fa-download"></i> 下載彩色</button>
+                    </div>
+                    <div style="text-align: center; background: #f9f9f9; padding: 10px; border-radius: 8px;">
+                        <p style="font-size: 12px; color: #666; margin-bottom: 8px;">清晰黑白版</p>
+                        <img id="export-bw" style="border:1px solid #ddd; max-height: 180px; width: auto;"><br>
+                        <button class="btn-primary" style="width:100%; margin-top: 8px;" onclick="showRenameModal('bw')"><i class="fa-solid fa-download"></i> 下載黑白</button>
+                    </div>
+                </div>
+                <div class="footer" style="flex-direction: column;">
+                    <div style="display:flex; gap:8px; width:100%;">
+                        <button class="btn-secondary" style="flex:1" onclick="switchPage(5)">返回塗鴉</button>
+                        <button class="btn-primary" style="flex:2" onclick="resetApp()">處理下一張</button>
                     </div>
                 </div>
             </div>
-            <div class="footer">
-                <button class="btn-secondary" onclick="switchPage(4)">返回調整</button>
-                <button class="btn-primary" onclick="goToExportFromDrawing()">下一步：匯出</button>
-            </div>
         </div>
+    </div>
 
-        <!-- 步驟 6: 匯出 -->
-        <div id="page-6" class="page">
-            <div style="display: flex; flex-direction: column; gap: 15px; flex: 1; overflow-y: auto; padding-bottom: 20px;">
-                <div style="text-align: center; background: #f9f9f9; padding: 10px; border-radius: 8px;">
-                    <p style="font-size: 12px; color: #666; margin-bottom: 8px;">增強彩色版（含塗鴉）</p>
-                    <img id="export-color" style="border:1px solid #ddd; max-height: 180px; width: auto;"><br>
-                    <button class="btn-primary" style="width:100%; margin-top: 8px;" onclick="showRenameModal('color')"><i class="fa-solid fa-download"></i> 下載彩色</button>
-                </div>
-                <div style="text-align: center; background: #f9f9f9; padding: 10px; border-radius: 8px;">
-                    <p style="font-size: 12px; color: #666; margin-bottom: 8px;">清晰黑白版</p>
-                    <img id="export-bw" style="border:1px solid #ddd; max-height: 180px; width: auto;"><br>
-                    <button class="btn-primary" style="width:100%; margin-top: 8px;" onclick="showRenameModal('bw')"><i class="fa-solid fa-download"></i> 下載黑白</button>
-                </div>
+    <!-- 重新命名懸浮視窗 -->
+    <div id="rename-modal">
+        <div class="modal-content">
+            <h3>重新命名檔案</h3>
+            <div class="rename-input-wrapper">
+                <input id="rename-input" type="text" placeholder="輸入新檔名（可留空使用預設）">
+                <span id="clear-input" onclick="clearRenameInput()">×</span>
             </div>
-            <div class="footer" style="flex-direction: column;">
-                <div style="display:flex; gap:8px; width:100%;">
-                    <button class="btn-secondary" style="flex:1" onclick="switchPage(5)">返回塗鴉</button>
-                    <button class="btn-primary" style="flex:2" onclick="resetApp()">處理下一張</button>
-                </div>
+
+            <!-- 新增：快速預設按鈕 -->
+            <div style="margin: 15px 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
+                <button onclick="setPresetName('自然')" class="preset-btn">自然</button>
+                <button onclick="setPresetName('生物')" class="preset-btn">生物</button>
+                <button onclick="setPresetName('理化')" class="preset-btn">理化</button>
+                <button onclick="setPresetName('地科')" class="preset-btn">地科</button>
+                <button onclick="setPresetName('社會')" class="preset-btn">社會</button>
+                <button onclick="setPresetName('地理')" class="preset-btn">地理</button>
+                <button onclick="setPresetName('歷史')" class="preset-btn">歷史</button>
+                <button onclick="setPresetName('公民')" class="preset-btn">公民</button>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="hideModal()">取消</button>
+                <button class="btn-download" onclick="confirmDownload()">下載</button>
             </div>
         </div>
     </div>
-</div>
 
-<!-- 重新命名懸浮視窗 -->
-<div id="rename-modal">
-    <div class="modal-content">
-        <h3>重新命名檔案</h3>
-        <div class="rename-input-wrapper">
-            <input id="rename-input" type="text" placeholder="輸入新檔名（可留空使用預設）">
-            <span id="clear-input" onclick="clearRenameInput()">×</span>
-        </div>
-        <div class="modal-buttons">
-            <button class="btn-cancel" onclick="hideModal()">取消</button>
-            <button class="btn-download" onclick="confirmDownload()">下載</button>
-        </div>
-    </div>
-</div>
+    <script>
+        // ==================== 全域變數 ====================
+        const fileInput = document.getElementById('file-input');
+        const previewImg = document.getElementById('preview-img');
+        const selection = document.getElementById('selection');
+        const canvasV2 = document.getElementById('canvas-v2');
 
-<script>
-    // ==================== 全域變數 ====================
-    const fileInput = document.getElementById('file-input');
-    const previewImg = document.getElementById('preview-img');
-    const selection = document.getElementById('selection');
-    const canvasV2 = document.getElementById('canvas-v2');
+        let currentStep = 1;
+        window.rawCropData = null;
 
-    let currentStep = 1;
-    window.rawCropData = null;
+        // 塗鴉相關變數
+        let drawingBaseCanvas = null; // 調整後的底圖
+        let annotationCanvas = null; // 塗鴉層（高解析）
+        let displayCanvas = null; // 顯示用畫布（含 dpr）
+        let displayCtx = null;
 
-    // 塗鴉相關變數
-    let drawingBaseCanvas = null;   // 調整後的底圖
-    let annotationCanvas = null;    // 塗鴉層（高解析）
-    let displayCanvas = null;       // 顯示用畫布（含 dpr）
-    let displayCtx = null;
+        let currentScale = 1;
+        let currentOffsetX = 0;
+        let currentOffsetY = 0;
 
-    let currentScale = 1;
-    let currentOffsetX = 0;
-    let currentOffsetY = 0;
+        let brushSize = 10;
+        let eraserSize = 10;
+        let currentColor = '#ffffff';
+        let currentTool = 'brush';
 
-    let brushSize = 10;
-    let eraserSize = 10;
-    let currentColor = '#ffffff';
-    let currentTool = 'brush';
+        let isDrawingAnnotation = false;
+        let isPanningMode = false;
+        let lastLogicalX = 0,
+            lastLogicalY = 0;
+        let lastPanX = 0,
+            lastPanY = 0;
+        let lastTouchDistance = 0;
 
-    let isDrawingAnnotation = false;
-    let isPanningMode = false;
-    let lastLogicalX = 0, lastLogicalY = 0;
-    let lastPanX = 0, lastPanY = 0;
-    let lastTouchDistance = 0;
+        // Dirty Rectangle 優化
+        let dirtyRegion = null;
+        let renderPending = false;
 
-    // Dirty Rectangle 優化
-    let dirtyRegion = null;
-    let renderPending = false;
+        // 高 DPI
+        let dpr = 1;
 
-    // 高 DPI
-    let dpr = 1;
+        // 預設檔名
+        let defaultColorName = 'Color_Question.png';
+        let defaultBWName = 'BW_Question.png';
+        let pendingDownloadType = null;
 
-    // 預設檔名
-    let defaultColorName = 'Color_Question.png';
-    let defaultBWName = 'BW_Question.png';
-    let pendingDownloadType = null;
+        // ==================== 通用函數 ====================
+        function switchPage(n) {
+            currentStep = n;
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(`page-${n}`).classList.add('active');
 
-    // ==================== 通用函數 ====================
-    function switchPage(n) {
-        currentStep = n;
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(`page-${n}`).classList.add('active');
-        
-        document.querySelectorAll('.step-num').forEach((s, i) => {
-            const stepIdx = i + 1;
-            s.classList.remove('active', 'clickable');
-            if (stepIdx <= n) {
-                s.classList.add('active');
-                if (stepIdx < n) s.classList.add('clickable');
+            document.querySelectorAll('.step-num').forEach((s, i) => {
+                const stepIdx = i + 1;
+                s.classList.remove('active', 'clickable');
+                if (stepIdx <= n) {
+                    s.classList.add('active');
+                    if (stepIdx < n) s.classList.add('clickable');
+                }
+            });
+        }
+
+        function resetApp() {
+            fileInput.value = "";
+            previewImg.src = "";
+            selection.style.display = 'none';
+            document.getElementById('btn-next').disabled = true;
+            drawingBaseCanvas = null;
+            annotationCanvas = null;
+            displayCanvas = null;
+            pendingDownloadType = null;
+            switchPage(1);
+        }
+
+        // 高 DPI Canvas 設定
+        function setupHighDPICanvas(canvas, logicalWidth, logicalHeight) {
+            dpr = window.devicePixelRatio || 1;
+            canvas.width = logicalWidth * dpr;
+            canvas.height = logicalHeight * dpr;
+            canvas.style.width = logicalWidth + 'px';
+            canvas.style.height = logicalHeight + 'px';
+            const ctx = canvas.getContext('2d', {
+                alpha: true
+            });
+            ctx.scale(dpr, dpr);
+            return ctx;
+        }
+
+        // ==================== 塗鴉核心優化函數 ====================
+        function expandDirty(x, y, w, h) {
+            const pad = 5; // 避免邊緣問題
+            x -= pad;
+            y -= pad;
+            w += pad * 2;
+            h += pad * 2;
+            if (!dirtyRegion) {
+                dirtyRegion = {
+                    x: x,
+                    y: y,
+                    width: w,
+                    height: h
+                };
+            } else {
+                const minX = Math.min(dirtyRegion.x, x);
+                const minY = Math.min(dirtyRegion.y, y);
+                const maxX = Math.max(dirtyRegion.x + dirtyRegion.width, x + w);
+                const maxY = Math.max(dirtyRegion.y + dirtyRegion.height, y + h);
+                dirtyRegion.x = minX;
+                dirtyRegion.y = minY;
+                dirtyRegion.width = maxX - minX;
+                dirtyRegion.height = maxY - minY;
             }
-        });
-    }
-
-    function resetApp() { 
-        fileInput.value = ""; 
-        previewImg.src = ""; 
-        selection.style.display = 'none'; 
-        document.getElementById('btn-next').disabled = true; 
-        drawingBaseCanvas = null;
-        annotationCanvas = null;
-        displayCanvas = null;
-        pendingDownloadType = null;
-        switchPage(1); 
-    }
-
-    // 高 DPI Canvas 設定
-    function setupHighDPICanvas(canvas, logicalWidth, logicalHeight) {
-        dpr = window.devicePixelRatio || 1;
-        canvas.width = logicalWidth * dpr;
-        canvas.height = logicalHeight * dpr;
-        canvas.style.width = logicalWidth + 'px';
-        canvas.style.height = logicalHeight + 'px';
-        const ctx = canvas.getContext('2d', { alpha: true });
-        ctx.scale(dpr, dpr);
-        return ctx;
-    }
-
-    // ==================== 塗鴉核心優化函數 ====================
-    function expandDirty(x, y, w, h) {
-        const pad = 5; // 避免邊緣問題
-        x -= pad; y -= pad; w += pad*2; h += pad*2;
-        if (!dirtyRegion) {
-            dirtyRegion = {x: x, y: y, width: w, height: h};
-        } else {
-            const minX = Math.min(dirtyRegion.x, x);
-            const minY = Math.min(dirtyRegion.y, y);
-            const maxX = Math.max(dirtyRegion.x + dirtyRegion.width, x + w);
-            const maxY = Math.max(dirtyRegion.y + dirtyRegion.height, y + h);
-            dirtyRegion.x = minX;
-            dirtyRegion.y = minY;
-            dirtyRegion.width = maxX - minX;
-            dirtyRegion.height = maxY - minY;
-        }
-    }
-
-    function requestRender() {
-        if (renderPending) return;
-        renderPending = true;
-        requestAnimationFrame(() => {
-            renderDrawing();
-            renderPending = false;
-            // dirtyRegion 保留到下次 render 完成後清空（避免連續繪圖遺漏）
-        });
-    }
-
-    function renderDrawing() {
-        if (!displayCanvas || !drawingBaseCanvas || !annotationCanvas) return;
-        
-        displayCtx.save();
-        displayCtx.clearRect(0, 0, displayCanvas.width / dpr, displayCanvas.height / dpr);
-        
-        displayCtx.translate(currentOffsetX, currentOffsetY);
-        displayCtx.scale(currentScale, currentScale);
-
-        // 底圖（全畫）
-        displayCtx.drawImage(drawingBaseCanvas, 0, 0);
-
-        // 塗鴉層（只畫 dirty 區域，大幅提升效能）
-        if (dirtyRegion) {
-            const dr = dirtyRegion;
-            displayCtx.drawImage(
-                annotationCanvas,
-                dr.x, dr.y, dr.width, dr.height,
-                dr.x, dr.y, dr.width, dr.height
-            );
-        } else {
-            displayCtx.drawImage(annotationCanvas, 0, 0);
         }
 
-        displayCtx.restore();
-    }
-
-    function getLogicalCoords(e) {
-        const rect = displayCanvas.getBoundingClientRect();
-        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-        const mouseX = clientX - rect.left;
-        const mouseY = clientY - rect.top;
-        return {
-            x: (mouseX - currentOffsetX) / currentScale,
-            y: (mouseY - currentOffsetY) / currentScale
-        };
-    }
-
-    function drawInitialPoint(lx, ly) {
-        const aCtx = annotationCanvas.getContext('2d');
-        const size = currentTool === 'brush' ? brushSize : eraserSize;
-        
-        aCtx.save();
-        if (currentTool === 'brush') {
-            aCtx.globalCompositeOperation = 'source-over';
-            aCtx.fillStyle = currentColor;
-        } else {
-            aCtx.globalCompositeOperation = 'destination-out';
+        function requestRender() {
+            if (renderPending) return;
+            renderPending = true;
+            requestAnimationFrame(() => {
+                renderDrawing();
+                renderPending = false;
+                // dirtyRegion 保留到下次 render 完成後清空（避免連續繪圖遺漏）
+            });
         }
-        aCtx.beginPath();
-        aCtx.arc(lx, ly, size / 2, 0, Math.PI * 2);
-        aCtx.fill();
-        aCtx.restore();
 
-        expandDirty(lx - size, ly - size, size * 2, size * 2);
-        requestRender();
-    }
+        function renderDrawing() {
+            if (!displayCanvas || !drawingBaseCanvas || !annotationCanvas) return;
 
-    function drawStroke(x1, y1, x2, y2) {
-        const aCtx = annotationCanvas.getContext('2d');
-        const size = currentTool === 'brush' ? brushSize : eraserSize;
-        
-        aCtx.save();
-        aCtx.lineWidth = size;
-        aCtx.lineCap = 'round';
-        aCtx.lineJoin = 'round';
-        if (currentTool === 'brush') {
-            aCtx.strokeStyle = currentColor;
-            aCtx.globalCompositeOperation = 'source-over';
-        } else {
-            aCtx.globalCompositeOperation = 'destination-out';
-        }
-        aCtx.beginPath();
-        aCtx.moveTo(x1, y1);
-        aCtx.lineTo(x2, y2);
-        aCtx.stroke();
-        aCtx.restore();
+            displayCtx.save();
+            displayCtx.clearRect(0, 0, displayCanvas.width / dpr, displayCanvas.height / dpr);
 
-        const pad = size + 4;
-        const minX = Math.min(x1, x2) - pad;
-        const minY = Math.min(y1, y2) - pad;
-        const maxX = Math.max(x1, x2) + pad;
-        const maxY = Math.max(y1, y2) + pad;
-        expandDirty(minX, minY, maxX - minX, maxY - minY);
+            displayCtx.translate(currentOffsetX, currentOffsetY);
+            displayCtx.scale(currentScale, currentScale);
 
-        requestRender();
-    }
+            // 底圖（全畫）
+            displayCtx.drawImage(drawingBaseCanvas, 0, 0);
 
-    function setTool(tool) {
-        currentTool = tool;
-        document.getElementById('brush-btn').classList.remove('active-tool');
-        document.getElementById('eraser-btn').classList.remove('active-tool');
-        if (tool === 'brush') {
-            document.getElementById('brush-btn').classList.add('active-tool');
-            document.getElementById('size-slider').value = brushSize;
-        } else if (tool === 'eraser') {
-            document.getElementById('eraser-btn').classList.add('active-tool');
-            document.getElementById('size-slider').value = eraserSize;
-        }
-        document.getElementById('brush-size-label').innerText = `大小: ${document.getElementById('size-slider').value}px`;
-    }
-
-    function clearAnnotations() {
-        if (annotationCanvas) {
-            annotationCanvas.getContext('2d').clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
-            dirtyRegion = null;
-            renderDrawing();
-        }
-    }
-
-    function setupDrawingEvents() {
-        const canvas = displayCanvas;
-
-        // Mouse events
-        canvas.addEventListener('mousedown', (e) => {
-            if (e.button === 2) { // 右鍵平移
-                isPanningMode = true;
-                lastPanX = e.clientX;
-                lastPanY = e.clientY;
-                e.preventDefault();
-                return;
+            // 塗鴉層（只畫 dirty 區域，大幅提升效能）
+            if (dirtyRegion) {
+                const dr = dirtyRegion;
+                displayCtx.drawImage(
+                    annotationCanvas,
+                    dr.x, dr.y, dr.width, dr.height,
+                    dr.x, dr.y, dr.width, dr.height
+                );
+            } else {
+                displayCtx.drawImage(annotationCanvas, 0, 0);
             }
-            const pos = getLogicalCoords(e);
-            if (currentTool === 'brush' || currentTool === 'eraser') {
-                isDrawingAnnotation = true;
-                lastLogicalX = pos.x;
-                lastLogicalY = pos.y;
-                drawInitialPoint(pos.x, pos.y);
-            }
-        });
 
-        canvas.addEventListener('mousemove', (e) => {
-            if (isDrawingAnnotation) {
-                const pos = getLogicalCoords(e);
-                drawStroke(lastLogicalX, lastLogicalY, pos.x, pos.y);
-                lastLogicalX = pos.x;
-                lastLogicalY = pos.y;
-            } else if (isPanningMode) {
-                const dx = e.clientX - lastPanX;
-                const dy = e.clientY - lastPanY;
-                currentOffsetX += dx;
-                currentOffsetY += dy;
-                lastPanX = e.clientX;
-                lastPanY = e.clientY;
+            displayCtx.restore();
+        }
+
+        function getLogicalCoords(e) {
+            const rect = displayCanvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            const mouseX = clientX - rect.left;
+            const mouseY = clientY - rect.top;
+            return {
+                x: (mouseX - currentOffsetX) / currentScale,
+                y: (mouseY - currentOffsetY) / currentScale
+            };
+        }
+
+        function drawInitialPoint(lx, ly) {
+            const aCtx = annotationCanvas.getContext('2d');
+            const size = currentTool === 'brush' ? brushSize : eraserSize;
+
+            aCtx.save();
+            if (currentTool === 'brush') {
+                aCtx.globalCompositeOperation = 'source-over';
+                aCtx.fillStyle = currentColor;
+            } else {
+                aCtx.globalCompositeOperation = 'destination-out';
+            }
+            aCtx.beginPath();
+            aCtx.arc(lx, ly, size / 2, 0, Math.PI * 2);
+            aCtx.fill();
+            aCtx.restore();
+
+            expandDirty(lx - size, ly - size, size * 2, size * 2);
+            requestRender();
+        }
+
+        function drawStroke(x1, y1, x2, y2) {
+            const aCtx = annotationCanvas.getContext('2d');
+            const size = currentTool === 'brush' ? brushSize : eraserSize;
+
+            aCtx.save();
+            aCtx.lineWidth = size;
+            aCtx.lineCap = 'round';
+            aCtx.lineJoin = 'round';
+            if (currentTool === 'brush') {
+                aCtx.strokeStyle = currentColor;
+                aCtx.globalCompositeOperation = 'source-over';
+            } else {
+                aCtx.globalCompositeOperation = 'destination-out';
+            }
+            aCtx.beginPath();
+            aCtx.moveTo(x1, y1);
+            aCtx.lineTo(x2, y2);
+            aCtx.stroke();
+            aCtx.restore();
+
+            const pad = size + 4;
+            const minX = Math.min(x1, x2) - pad;
+            const minY = Math.min(y1, y2) - pad;
+            const maxX = Math.max(x1, x2) + pad;
+            const maxY = Math.max(y1, y2) + pad;
+            expandDirty(minX, minY, maxX - minX, maxY - minY);
+
+            requestRender();
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.getElementById('brush-btn').classList.remove('active-tool');
+            document.getElementById('eraser-btn').classList.remove('active-tool');
+            if (tool === 'brush') {
+                document.getElementById('brush-btn').classList.add('active-tool');
+                document.getElementById('size-slider').value = brushSize;
+            } else if (tool === 'eraser') {
+                document.getElementById('eraser-btn').classList.add('active-tool');
+                document.getElementById('size-slider').value = eraserSize;
+            }
+            document.getElementById('brush-size-label').innerText = `大小: ${document.getElementById('size-slider').value}px`;
+        }
+
+        function clearAnnotations() {
+            if (annotationCanvas) {
+                annotationCanvas.getContext('2d').clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+                dirtyRegion = null;
                 renderDrawing();
             }
-        });
+        }
 
-        const endMouse = () => { isDrawingAnnotation = false; isPanningMode = false; };
-        window.addEventListener('mouseup', endMouse);
-        canvas.addEventListener('mouseleave', endMouse);
-        canvas.addEventListener('contextmenu', e => e.preventDefault());
+        function setupDrawingEvents() {
+            const canvas = displayCanvas;
 
-        // Wheel zoom
-        canvas.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            const factor = e.deltaY < 0 ? 1.2 : 0.8;
-            const oldScale = currentScale;
-            currentScale *= factor;
-            currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
-            currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
-            renderDrawing();
-        });
-
-        // Touch events（行動裝置重點優化）
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (e.touches.length === 1) {
-                const pos = getLogicalCoords(e.touches[0]);
+            // Mouse events
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.button === 2) { // 右鍵平移
+                    isPanningMode = true;
+                    lastPanX = e.clientX;
+                    lastPanY = e.clientY;
+                    e.preventDefault();
+                    return;
+                }
+                const pos = getLogicalCoords(e);
                 if (currentTool === 'brush' || currentTool === 'eraser') {
                     isDrawingAnnotation = true;
                     lastLogicalX = pos.x;
                     lastLogicalY = pos.y;
                     drawInitialPoint(pos.x, pos.y);
                 }
-            } else if (e.touches.length === 2) {
-                isPanningMode = true;
-                lastTouchDistance = getTouchDistance(e.touches);
-                const center = getTouchCenter(e.touches);
-                lastPanX = center.x;
-                lastPanY = center.y;
-            }
-        }, { passive: false });
+            });
 
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (e.touches.length === 1 && isDrawingAnnotation) {
-                const pos = getLogicalCoords(e.touches[0]);
-                drawStroke(lastLogicalX, lastLogicalY, pos.x, pos.y);
-                lastLogicalX = pos.x;
-                lastLogicalY = pos.y;
-            } else if (e.touches.length === 2 && isPanningMode) {
-                const center = getTouchCenter(e.touches);
-                const dx = center.x - lastPanX;
-                const dy = center.y - lastPanY;
-                currentOffsetX += dx;
-                currentOffsetY += dy;
-                lastPanX = center.x;
-                lastPanY = center.y;
-
-                const newDist = getTouchDistance(e.touches);
-                if (Math.abs(newDist - lastTouchDistance) > 8) {
-                    const factor = newDist / lastTouchDistance;
-                    const rect = canvas.getBoundingClientRect();
-                    const mouseX = center.x - rect.left;
-                    const mouseY = center.y - rect.top;
-                    const oldScale = currentScale;
-                    currentScale *= factor;
-                    currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
-                    currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
-                    lastTouchDistance = newDist;
+            canvas.addEventListener('mousemove', (e) => {
+                if (isDrawingAnnotation) {
+                    const pos = getLogicalCoords(e);
+                    drawStroke(lastLogicalX, lastLogicalY, pos.x, pos.y);
+                    lastLogicalX = pos.x;
+                    lastLogicalY = pos.y;
+                } else if (isPanningMode) {
+                    const dx = e.clientX - lastPanX;
+                    const dy = e.clientY - lastPanY;
+                    currentOffsetX += dx;
+                    currentOffsetY += dy;
+                    lastPanX = e.clientX;
+                    lastPanY = e.clientY;
+                    renderDrawing();
                 }
+            });
+
+            const endMouse = () => {
+                isDrawingAnnotation = false;
+                isPanningMode = false;
+            };
+            window.addEventListener('mouseup', endMouse);
+            canvas.addEventListener('mouseleave', endMouse);
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+            // Wheel zoom
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const factor = e.deltaY < 0 ? 1.2 : 0.8;
+                const oldScale = currentScale;
+                currentScale *= factor;
+                currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
+                currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
                 renderDrawing();
-            }
-        }, { passive: false });
+            });
 
-        canvas.addEventListener('touchend', () => {
-            isDrawingAnnotation = false;
-            isPanningMode = false;
+            // Touch events（行動裝置重點優化）
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1) {
+                    const pos = getLogicalCoords(e.touches[0]);
+                    if (currentTool === 'brush' || currentTool === 'eraser') {
+                        isDrawingAnnotation = true;
+                        lastLogicalX = pos.x;
+                        lastLogicalY = pos.y;
+                        drawInitialPoint(pos.x, pos.y);
+                    }
+                } else if (e.touches.length === 2) {
+                    isPanningMode = true;
+                    lastTouchDistance = getTouchDistance(e.touches);
+                    const center = getTouchCenter(e.touches);
+                    lastPanX = center.x;
+                    lastPanY = center.y;
+                }
+            }, {
+                passive: false
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1 && isDrawingAnnotation) {
+                    const pos = getLogicalCoords(e.touches[0]);
+                    drawStroke(lastLogicalX, lastLogicalY, pos.x, pos.y);
+                    lastLogicalX = pos.x;
+                    lastLogicalY = pos.y;
+                } else if (e.touches.length === 2 && isPanningMode) {
+                    const center = getTouchCenter(e.touches);
+                    const dx = center.x - lastPanX;
+                    const dy = center.y - lastPanY;
+                    currentOffsetX += dx;
+                    currentOffsetY += dy;
+                    lastPanX = center.x;
+                    lastPanY = center.y;
+
+                    const newDist = getTouchDistance(e.touches);
+                    if (Math.abs(newDist - lastTouchDistance) > 8) {
+                        const factor = newDist / lastTouchDistance;
+                        const rect = canvas.getBoundingClientRect();
+                        const mouseX = center.x - rect.left;
+                        const mouseY = center.y - rect.top;
+                        const oldScale = currentScale;
+                        currentScale *= factor;
+                        currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
+                        currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
+                        lastTouchDistance = newDist;
+                    }
+                    renderDrawing();
+                }
+            }, {
+                passive: false
+            });
+
+            canvas.addEventListener('touchend', () => {
+                isDrawingAnnotation = false;
+                isPanningMode = false;
+            });
+        }
+
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function getTouchCenter(touches) {
+            return {
+                x: (touches[0].clientX + touches[1].clientX) / 2,
+                y: (touches[0].clientY + touches[1].clientY) / 2
+            };
+        }
+
+        // ==================== 步驟流程 ====================
+        fileInput.onchange = (e) => {
+            if (e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    previewImg.src = ev.target.result;
+                    switchPage(2);
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        };
+
+        // 裁切邏輯（維持不變）
+        let isDrawing = false,
+            startX, startY;
+
+        function handleStart(e) {
+            if (currentStep !== 2) return;
+            isDrawing = true;
+            const r = canvasV2.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            startX = clientX - r.left;
+            startY = clientY - r.top;
+            selection.style.cssText = `display:block; left:${startX}px; top:${startY}px; width:0; height:0;`;
+        }
+
+        function handleMove(e) {
+            if (!isDrawing || currentStep !== 2) return;
+            const r = canvasV2.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            let x = Math.max(0, Math.min(clientX - r.left, r.width)),
+                y = Math.max(0, Math.min(clientY - r.top, r.height));
+            selection.style.left = Math.min(x, startX) + 'px';
+            selection.style.top = Math.min(y, startY) + 'px';
+            selection.style.width = Math.abs(x - startX) + 'px';
+            selection.style.height = Math.abs(y - startY) + 'px';
+            if (Math.abs(x - startX) > 10 && Math.abs(y - startY) > 10) {
+                document.getElementById('btn-next').disabled = false;
+            }
+        }
+
+        canvasV2.addEventListener('mousedown', handleStart);
+        canvasV2.addEventListener('touchstart', handleStart);
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', (e) => {
+            if (isDrawing) e.preventDefault();
+            handleMove(e);
+        }, {
+            passive: false
         });
-    }
+        window.addEventListener('mouseup', () => isDrawing = false);
+        window.addEventListener('touchend', () => isDrawing = false);
 
-    function getTouchDistance(touches) {
-        const dx = touches[0].clientX - touches[1].clientX;
-        const dy = touches[0].clientY - touches[1].clientY;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
-
-    function getTouchCenter(touches) {
-        return {
-            x: (touches[0].clientX + touches[1].clientX) / 2,
-            y: (touches[0].clientY + touches[1].clientY) / 2
-        };
-    }
-
-    // ==================== 步驟流程 ====================
-    fileInput.onchange = (e) => {
-        if (e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (ev) => { 
-                previewImg.src = ev.target.result; 
-                switchPage(2); 
-            };
-            reader.readAsDataURL(e.target.files[0]);
+        function goToRotate() {
+            const r = canvasV2.getBoundingClientRect(),
+                ir = previewImg.getBoundingClientRect();
+            const sx = previewImg.naturalWidth / ir.width,
+                sy = previewImg.naturalHeight / ir.height;
+            const cx = (parseFloat(selection.style.left) - (ir.left - r.left)) * sx;
+            const cy = (parseFloat(selection.style.top) - (ir.top - r.top)) * sy;
+            const cw = parseFloat(selection.style.width) * sx,
+                ch = parseFloat(selection.style.height) * sy;
+            const rotateCanvas = document.getElementById('rotate-canvas');
+            rotateCanvas.width = cw;
+            rotateCanvas.height = ch;
+            const ctx = rotateCanvas.getContext('2d');
+            ctx.clearRect(0, 0, cw, ch);
+            ctx.drawImage(previewImg, cx, cy, cw, ch, 0, 0, cw, ch);
+            switchPage(3);
         }
-    };
 
-    // 裁切邏輯（維持不變）
-    let isDrawing = false, startX, startY;
-    function handleStart(e) {
-        if (currentStep !== 2) return;
-        isDrawing = true; 
-        const r = canvasV2.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        startX = clientX - r.left; startY = clientY - r.top;
-        selection.style.cssText = `display:block; left:${startX}px; top:${startY}px; width:0; height:0;`;
-    }
-
-    function handleMove(e) {
-        if (!isDrawing || currentStep !== 2) return;
-        const r = canvasV2.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        let x = Math.max(0, Math.min(clientX - r.left, r.width)), 
-            y = Math.max(0, Math.min(clientY - r.top, r.height));
-        selection.style.left = Math.min(x, startX)+'px'; 
-        selection.style.top = Math.min(y, startY)+'px';
-        selection.style.width = Math.abs(x - startX)+'px'; 
-        selection.style.height = Math.abs(y - startY)+'px';
-        if (Math.abs(x - startX) > 10 && Math.abs(y - startY) > 10) {
-            document.getElementById('btn-next').disabled = false;
-        }
-    }
-
-    canvasV2.addEventListener('mousedown', handleStart);
-    canvasV2.addEventListener('touchstart', handleStart);
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('touchmove', (e) => { if(isDrawing) e.preventDefault(); handleMove(e); }, {passive: false});
-    window.addEventListener('mouseup', () => isDrawing = false);
-    window.addEventListener('touchend', () => isDrawing = false);
-
-    function goToRotate() {
-        const r = canvasV2.getBoundingClientRect(), ir = previewImg.getBoundingClientRect();
-        const sx = previewImg.naturalWidth / ir.width, sy = previewImg.naturalHeight / ir.height;
-        const cx = (parseFloat(selection.style.left) - (ir.left - r.left)) * sx;
-        const cy = (parseFloat(selection.style.top) - (ir.top - r.top)) * sy;
-        const cw = parseFloat(selection.style.width) * sx, ch = parseFloat(selection.style.height) * sy;
-        const rotateCanvas = document.getElementById('rotate-canvas');
-        rotateCanvas.width = cw; rotateCanvas.height = ch;
-        const ctx = rotateCanvas.getContext('2d');
-        ctx.clearRect(0,0,cw,ch);
-        ctx.drawImage(previewImg, cx, cy, cw, ch, 0, 0, cw, ch);
-        switchPage(3);
-    }
-
-    function doRotate(deg) {
-        const rotateCanvas = document.getElementById('rotate-canvas');
-        const off = document.createElement('canvas');
-        if (Math.abs(deg) === 90) { 
-            off.width = rotateCanvas.height; 
-            off.height = rotateCanvas.width; 
-        } else { 
-            off.width = rotateCanvas.width; 
-            off.height = rotateCanvas.height; 
-        }
-        const oCtx = off.getContext('2d');
-        oCtx.translate(off.width/2, off.height/2);
-        oCtx.rotate(deg * Math.PI / 180);
-        oCtx.drawImage(rotateCanvas, -rotateCanvas.width/2, -rotateCanvas.height/2);
-        rotateCanvas.width = off.width; 
-        rotateCanvas.height = off.height;
-        rotateCanvas.getContext('2d').drawImage(off, 0, 0);
-    }
-
-    function goToEdit() {
-        const rotateCanvas = document.getElementById('rotate-canvas');
-        const editCanvas = document.getElementById('editing-canvas');
-        editCanvas.width = rotateCanvas.width; 
-        editCanvas.height = rotateCanvas.height;
-        editCanvas.getContext('2d').drawImage(rotateCanvas, 0, 0);
-        window.rawCropData = editCanvas.getContext('2d').getImageData(0, 0, editCanvas.width, editCanvas.height);
-        switchPage(4);
-        applyFilters();
-    }
-
-    function applyFilters() {
-        if (!window.rawCropData) return;
-        const valC = parseFloat(document.getElementById('contrast').value) || 0, 
-              valB = parseFloat(document.getElementById('brightness').value) || 0, 
-              valS = parseFloat(document.getElementById('saturate').value) || 0;
-        document.getElementById('v-contrast').innerText = valC; 
-        document.getElementById('v-brightness').innerText = valB; 
-        document.getElementById('v-saturate').innerText = valS;
-        const contrast = valC * 2.55;
-        const brightness = valB * 2;
-        const saturate = (valS / 100) + 1;
-        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-        const imgData = new ImageData(new Uint8ClampedArray(window.rawCropData.data), window.rawCropData.width, window.rawCropData.height);
-        const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
-            for(let j=0; j<3; j++) { 
-                d[i+j] = factor * (d[i+j] + brightness - 128) + 128; 
+        function doRotate(deg) {
+            const rotateCanvas = document.getElementById('rotate-canvas');
+            const off = document.createElement('canvas');
+            if (Math.abs(deg) === 90) {
+                off.width = rotateCanvas.height;
+                off.height = rotateCanvas.width;
+            } else {
+                off.width = rotateCanvas.width;
+                off.height = rotateCanvas.height;
             }
-            const gray = 0.2126 * d[i] + 0.7152 * d[i+1] + 0.0722 * d[i+2];
-            d[i] = gray + (d[i] - gray) * saturate; 
-            d[i+1] = gray + (d[i+1] - gray) * saturate; 
-            d[i+2] = gray + (d[i+2] - gray) * saturate;
+            const oCtx = off.getContext('2d');
+            oCtx.translate(off.width / 2, off.height / 2);
+            oCtx.rotate(deg * Math.PI / 180);
+            oCtx.drawImage(rotateCanvas, -rotateCanvas.width / 2, -rotateCanvas.height / 2);
+            rotateCanvas.width = off.width;
+            rotateCanvas.height = off.height;
+            rotateCanvas.getContext('2d').drawImage(off, 0, 0);
         }
-        document.getElementById('editing-canvas').getContext('2d').putImageData(imgData, 0, 0);
-    }
 
-    ['contrast', 'brightness', 'saturate'].forEach(id => {
-        document.getElementById(id).oninput = applyFilters;
-    });
+        function goToEdit() {
+            const rotateCanvas = document.getElementById('rotate-canvas');
+            const editCanvas = document.getElementById('editing-canvas');
+            editCanvas.width = rotateCanvas.width;
+            editCanvas.height = rotateCanvas.height;
+            editCanvas.getContext('2d').drawImage(rotateCanvas, 0, 0);
+            window.rawCropData = editCanvas.getContext('2d').getImageData(0, 0, editCanvas.width, editCanvas.height);
+            switchPage(4);
+            applyFilters();
+        }
 
-    function goToDrawing() {
-        const editCanvas = document.getElementById('editing-canvas');
+        function applyFilters() {
+            if (!window.rawCropData) return;
+            const valC = parseFloat(document.getElementById('contrast').value) || 0,
+                valB = parseFloat(document.getElementById('brightness').value) || 0,
+                valS = parseFloat(document.getElementById('saturate').value) || 0;
+            document.getElementById('v-contrast').innerText = valC;
+            document.getElementById('v-brightness').innerText = valB;
+            document.getElementById('v-saturate').innerText = valS;
+            const contrast = valC * 2.55;
+            const brightness = valB * 2;
+            const saturate = (valS / 100) + 1;
+            const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+            const imgData = new ImageData(new Uint8ClampedArray(window.rawCropData.data), window.rawCropData.width, window.rawCropData.height);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+                for (let j = 0; j < 3; j++) {
+                    d[i + j] = factor * (d[i + j] + brightness - 128) + 128;
+                }
+                const gray = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+                d[i] = gray + (d[i] - gray) * saturate;
+                d[i + 1] = gray + (d[i + 1] - gray) * saturate;
+                d[i + 2] = gray + (d[i + 2] - gray) * saturate;
+            }
+            document.getElementById('editing-canvas').getContext('2d').putImageData(imgData, 0, 0);
+        }
 
-        // 建立高解析底圖
-        drawingBaseCanvas = document.createElement('canvas');
-        drawingBaseCanvas.width = editCanvas.width;
-        drawingBaseCanvas.height = editCanvas.height;
-        drawingBaseCanvas.getContext('2d').drawImage(editCanvas, 0, 0);
+        ['contrast', 'brightness', 'saturate'].forEach(id => {
+            document.getElementById(id).oninput = applyFilters;
+        });
 
-        // 建立塗鴉層（與底圖同解析度）
-        annotationCanvas = document.createElement('canvas');
-        annotationCanvas.width = drawingBaseCanvas.width;
-        annotationCanvas.height = drawingBaseCanvas.height;
-        annotationCanvas.getContext('2d').clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+        function goToDrawing() {
+            const editCanvas = document.getElementById('editing-canvas');
 
-        switchPage(5);
+            // 建立高解析底圖
+            drawingBaseCanvas = document.createElement('canvas');
+            drawingBaseCanvas.width = editCanvas.width;
+            drawingBaseCanvas.height = editCanvas.height;
+            drawingBaseCanvas.getContext('2d').drawImage(editCanvas, 0, 0);
 
-        setTimeout(() => {
-            const container = document.getElementById('drawing-canvas-container');
-            displayCanvas = document.getElementById('display-canvas');
+            // 建立塗鴉層（與底圖同解析度）
+            annotationCanvas = document.createElement('canvas');
+            annotationCanvas.width = drawingBaseCanvas.width;
+            annotationCanvas.height = drawingBaseCanvas.height;
+            annotationCanvas.getContext('2d').clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
 
-            // 設定顯示畫布大小（邏輯像素）
-            const logicalW = Math.max(300, container.clientWidth);
-            const logicalH = Math.max(300, container.clientHeight);
-            displayCtx = setupHighDPICanvas(displayCanvas, logicalW, logicalH);
+            switchPage(5);
 
-            // 計算初始縮放與位置（置中）
-            const imgW = drawingBaseCanvas.width;
-            const imgH = drawingBaseCanvas.height;
-            currentScale = Math.min(logicalW / imgW, logicalH / imgH);
-            currentOffsetX = (logicalW - imgW * currentScale) / 2;
-            currentOffsetY = (logicalH - imgH * currentScale) / 2;
+            setTimeout(() => {
+                const container = document.getElementById('drawing-canvas-container');
+                displayCanvas = document.getElementById('display-canvas');
 
-            dirtyRegion = null;
-            renderDrawing();
+                // 設定顯示畫布大小（邏輯像素）
+                const logicalW = Math.max(300, container.clientWidth);
+                const logicalH = Math.max(300, container.clientHeight);
+                displayCtx = setupHighDPICanvas(displayCanvas, logicalW, logicalH);
 
-            currentTool = 'brush';
-            setTool('brush');
+                // 計算初始縮放與位置（置中）
+                const imgW = drawingBaseCanvas.width;
+                const imgH = drawingBaseCanvas.height;
+                currentScale = Math.min(logicalW / imgW, logicalH / imgH);
+                currentOffsetX = (logicalW - imgW * currentScale) / 2;
+                currentOffsetY = (logicalH - imgH * currentScale) / 2;
 
-            // Slider 事件
-            document.getElementById('size-slider').oninput = () => {
-                const val = parseInt(document.getElementById('size-slider').value);
-                if (currentTool === 'brush') brushSize = val;
-                else if (currentTool === 'eraser') eraserSize = val;
-                document.getElementById('brush-size-label').innerText = `大小: ${val}px`;
-            };
+                dirtyRegion = null;
+                renderDrawing();
 
-            document.getElementById('color-picker').onchange = (e) => {
-                currentColor = e.target.value;
-            };
+                currentTool = 'brush';
+                setTool('brush');
 
-            setupDrawingEvents();
-        }, 50);
-    }
+                // Slider 事件
+                document.getElementById('size-slider').oninput = () => {
+                    const val = parseInt(document.getElementById('size-slider').value);
+                    if (currentTool === 'brush') brushSize = val;
+                    else if (currentTool === 'eraser') eraserSize = val;
+                    document.getElementById('brush-size-label').innerText = `大小: ${val}px`;
+                };
 
-    function goToExportFromDrawing() {
-        if (!drawingBaseCanvas || !annotationCanvas) {
+                document.getElementById('color-picker').onchange = (e) => {
+                    currentColor = e.target.value;
+                };
+
+                setupDrawingEvents();
+            }, 50);
+        }
+
+        function goToExportFromDrawing() {
+            if (!drawingBaseCanvas || !annotationCanvas) {
+                switchPage(6);
+                return;
+            }
+
+            // 彩色版（含塗鴉）
+            const finalColorCanvas = document.createElement('canvas');
+            finalColorCanvas.width = drawingBaseCanvas.width;
+            finalColorCanvas.height = drawingBaseCanvas.height;
+            const fCtx = finalColorCanvas.getContext('2d');
+            fCtx.drawImage(drawingBaseCanvas, 0, 0);
+            fCtx.drawImage(annotationCanvas, 0, 0);
+            document.getElementById('export-color').src = finalColorCanvas.toDataURL('image/png');
+
+            // 黑白版
+            const bwCanvas = document.createElement('canvas');
+            bwCanvas.width = finalColorCanvas.width;
+            bwCanvas.height = finalColorCanvas.height;
+            const bCtx = bwCanvas.getContext('2d');
+            bCtx.drawImage(finalColorCanvas, 0, 0);
+            const d = bCtx.getImageData(0, 0, bwCanvas.width, bwCanvas.height);
+            for (let i = 0; i < d.data.length; i += 4) {
+                const avg = (d.data[i] + d.data[i + 1] + d.data[i + 2]) / 3;
+                const v = avg < 127 ? 0 : 255;
+                d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
+            }
+            bCtx.putImageData(d, 0, 0);
+            document.getElementById('export-bw').src = bwCanvas.toDataURL('image/png');
+
             switchPage(6);
-            return;
         }
 
-        // 彩色版（含塗鴉）
-        const finalColorCanvas = document.createElement('canvas');
-        finalColorCanvas.width = drawingBaseCanvas.width;
-        finalColorCanvas.height = drawingBaseCanvas.height;
-        const fCtx = finalColorCanvas.getContext('2d');
-        fCtx.drawImage(drawingBaseCanvas, 0, 0);
-        fCtx.drawImage(annotationCanvas, 0, 0);
-        document.getElementById('export-color').src = finalColorCanvas.toDataURL('image/png');
+        // ==================== 重新命名視窗 ====================
+        function showRenameModal(type) {
+            pendingDownloadType = type;
+            const defaultName = type === 'color' ? defaultColorName : defaultBWName;
+            const input = document.getElementById('rename-input');
+            const clearBtn = document.getElementById('clear-input');
+            input.value = defaultName;
 
-        // 黑白版
-        const bwCanvas = document.createElement('canvas');
-        bwCanvas.width = finalColorCanvas.width;
-        bwCanvas.height = finalColorCanvas.height;
-        const bCtx = bwCanvas.getContext('2d');
-        bCtx.drawImage(finalColorCanvas, 0, 0);
-        const d = bCtx.getImageData(0, 0, bwCanvas.width, bwCanvas.height);
-        for (let i = 0; i < d.data.length; i += 4) {
-            const avg = (d.data[i] + d.data[i + 1] + d.data[i + 2]) / 3;
-            const v = avg < 127 ? 0 : 255;
-            d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
-        }
-        bCtx.putImageData(d, 0, 0);
-        document.getElementById('export-bw').src = bwCanvas.toDataURL('image/png');
+            const updateClearVisibility = () => {
+                clearBtn.style.display = input.value.trim() ? 'block' : 'none';
+            };
+            input.oninput = updateClearVisibility;
+            updateClearVisibility();
 
-        switchPage(6);
-    }
-
-    // ==================== 重新命名視窗 ====================
-    function showRenameModal(type) {
-        pendingDownloadType = type;
-        const defaultName = type === 'color' ? defaultColorName : defaultBWName;
-        const input = document.getElementById('rename-input');
-        const clearBtn = document.getElementById('clear-input');
-        input.value = defaultName;
-
-        const updateClearVisibility = () => {
-            clearBtn.style.display = input.value.trim() ? 'block' : 'none';
-        };
-        input.oninput = updateClearVisibility;
-        updateClearVisibility();
-
-        document.getElementById('rename-modal').style.display = 'flex';
-    }
-
-    function hideModal() {
-        document.getElementById('rename-modal').style.display = 'none';
-        pendingDownloadType = null;
-    }
-
-    function clearRenameInput() {
-        const input = document.getElementById('rename-input');
-        input.value = '';
-        if (input.oninput) input.oninput();
-    }
-
-    function confirmDownload() {
-        if (!pendingDownloadType) return;
-        
-        let inputVal = document.getElementById('rename-input').value.trim();
-        let filename = inputVal || (pendingDownloadType === 'color' ? defaultColorName : defaultBWName);
-
-        if (!filename.toLowerCase().endsWith('.png')) {
-            filename += '.png';
+            document.getElementById('rename-modal').style.display = 'flex';
         }
 
-        if (inputVal) {
-            if (pendingDownloadType === 'color') defaultColorName = filename;
-            else defaultBWName = filename;
+        function hideModal() {
+            document.getElementById('rename-modal').style.display = 'none';
+            pendingDownloadType = null;
         }
 
-        const id = pendingDownloadType === 'color' ? 'export-color' : 'export-bw';
-        const a = document.createElement('a'); 
-        a.href = document.getElementById(id).src; 
-        a.download = filename; 
-        a.click(); 
-        
-        hideModal();
-    }
+        function clearRenameInput() {
+            const input = document.getElementById('rename-input');
+            input.value = '';
+            if (input.oninput) input.oninput();
+        }
 
-    // 步驟點擊
-    document.querySelectorAll('.step-num').forEach(dot => {
-        dot.onclick = function() {
-            const targetStep = parseInt(this.getAttribute('data-step'));
-            if (targetStep < currentStep) switchPage(targetStep);
-        };
-    });
-</script>
+        // 快速設定預設科目名稱
+        function setPresetName(subject) {
+            const input = document.getElementById('rename-input');
+            const currentValue = input.value.trim();
+
+            // 如果已有內容，則在後面加上科目
+            if (currentValue) {
+                // 避免重複加入相同科目
+                if (!currentValue.includes(subject)) {
+                    input.value = currentValue + '_' + subject;
+                }
+            } else {
+                input.value = subject;
+            }
+
+            // 觸發 clear 按鈕顯示
+            if (input.oninput) input.oninput();
+        }
+
+        function confirmDownload() {
+            if (!pendingDownloadType) return;
+
+            let inputVal = document.getElementById('rename-input').value.trim();
+            let filename = inputVal || (pendingDownloadType === 'color' ? defaultColorName : defaultBWName);
+
+            if (!filename.toLowerCase().endsWith('.png')) {
+                filename += '.png';
+            }
+
+            if (inputVal) {
+                if (pendingDownloadType === 'color') defaultColorName = filename;
+                else defaultBWName = filename;
+            }
+
+            const id = pendingDownloadType === 'color' ? 'export-color' : 'export-bw';
+            const a = document.createElement('a');
+            a.href = document.getElementById(id).src;
+            a.download = filename;
+            a.click();
+
+            hideModal();
+        }
+
+        // 步驟點擊
+        document.querySelectorAll('.step-num').forEach(dot => {
+            dot.onclick = function() {
+                const targetStep = parseInt(this.getAttribute('data-step'));
+                if (targetStep < currentStep) switchPage(targetStep);
+            };
+        });
+    </script>
 </body>
+
 </html>
