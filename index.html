@@ -586,6 +586,7 @@
             requestAnimationFrame(() => {
                 renderDrawing();
                 renderPending = false;
+                // dirtyRegion = null;   // 可以先註解這行
                 // dirtyRegion 保留到下次 render 完成後清空（避免連續繪圖遺漏）
             });
         }
@@ -599,22 +600,14 @@
             displayCtx.translate(currentOffsetX, currentOffsetY);
             displayCtx.scale(currentScale, currentScale);
 
-            // 底圖（全畫）
+            // 先畫底圖
             displayCtx.drawImage(drawingBaseCanvas, 0, 0);
-
-            // 塗鴉層（只畫 dirty 區域，大幅提升效能）
-            if (dirtyRegion) {
-                const dr = dirtyRegion;
-                displayCtx.drawImage(
-                    annotationCanvas,
-                    dr.x, dr.y, dr.width, dr.height,
-                    dr.x, dr.y, dr.width, dr.height
-                );
-            } else {
-                displayCtx.drawImage(annotationCanvas, 0, 0);
-            }
+            // 再畫塗鴉層（包含已擦除的部分）
+            displayCtx.drawImage(annotationCanvas, 0, 0);
 
             displayCtx.restore();
+
+            dirtyRegion = null;
         }
 
         function getLogicalCoords(e) {
@@ -623,15 +616,28 @@
             const clientY = e.clientY || (e.touches && e.touches[0].clientY);
             const mouseX = clientX - rect.left;
             const mouseY = clientY - rect.top;
+
+            let lx = (mouseX - currentOffsetX) / currentScale;
+            let ly = (mouseY - currentOffsetY) / currentScale;
+
+            // === 新增：強制限制在圖片範圍內 ===
+            lx = Math.max(0, Math.min(lx, drawingBaseCanvas.width));
+            ly = Math.max(0, Math.min(ly, drawingBaseCanvas.height));
+
             return {
-                x: (mouseX - currentOffsetX) / currentScale,
-                y: (mouseY - currentOffsetY) / currentScale
+                x: lx,
+                y: ly
             };
         }
 
         function drawInitialPoint(lx, ly) {
-            const aCtx = annotationCanvas.getContext('2d');
+            const w = drawingBaseCanvas.width;
+            const h = drawingBaseCanvas.height;
+            lx = Math.max(0, Math.min(lx, w));
+            ly = Math.max(0, Math.min(ly, h));
+
             const size = currentTool === 'brush' ? brushSize : eraserSize;
+            const aCtx = annotationCanvas.getContext('2d');
 
             aCtx.save();
             if (currentTool === 'brush') {
@@ -646,29 +652,40 @@
             aCtx.restore();
 
             expandDirty(lx - size, ly - size, size * 2, size * 2);
-            requestRender();
+            requestRender(); // 改用 requestRender 統一更新
         }
 
         function drawStroke(x1, y1, x2, y2) {
-            const aCtx = annotationCanvas.getContext('2d');
+            const w = drawingBaseCanvas.width;
+            const h = drawingBaseCanvas.height;
+
+            x1 = Math.max(0, Math.min(x1, w));
+            y1 = Math.max(0, Math.min(y1, h));
+            x2 = Math.max(0, Math.min(x2, w));
+            y2 = Math.max(0, Math.min(y2, h));
+
             const size = currentTool === 'brush' ? brushSize : eraserSize;
+            const aCtx = annotationCanvas.getContext('2d');
 
             aCtx.save();
             aCtx.lineWidth = size;
             aCtx.lineCap = 'round';
             aCtx.lineJoin = 'round';
+
             if (currentTool === 'brush') {
                 aCtx.strokeStyle = currentColor;
                 aCtx.globalCompositeOperation = 'source-over';
             } else {
                 aCtx.globalCompositeOperation = 'destination-out';
             }
+
             aCtx.beginPath();
             aCtx.moveTo(x1, y1);
             aCtx.lineTo(x2, y2);
             aCtx.stroke();
             aCtx.restore();
 
+            // 更新 dirty 區域
             const pad = size + 4;
             const minX = Math.min(x1, x2) - pad;
             const minY = Math.min(y1, y2) - pad;
@@ -676,7 +693,7 @@
             const maxY = Math.max(y1, y2) + pad;
             expandDirty(minX, minY, maxX - minX, maxY - minY);
 
-            requestRender();
+            requestRender(); // 統一使用 requestRender 更新畫面
         }
 
         function setTool(tool) {
@@ -713,7 +730,15 @@
                     e.preventDefault();
                     return;
                 }
+
                 const pos = getLogicalCoords(e);
+
+                // === 新增：如果點在圖片範圍外，則不開始繪畫 ===
+                if (pos.x < 0 || pos.x > drawingBaseCanvas.width ||
+                    pos.y < 0 || pos.y > drawingBaseCanvas.height) {
+                    return;
+                }
+
                 if (currentTool === 'brush' || currentTool === 'eraser') {
                     isDrawingAnnotation = true;
                     lastLogicalX = pos.x;
@@ -747,25 +772,39 @@
             canvas.addEventListener('mouseleave', endMouse);
             canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-            // Wheel zoom
+            // Wheel zoom - 調整為更細膩的縮放
             canvas.addEventListener('wheel', (e) => {
                 e.preventDefault();
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
-                const factor = e.deltaY < 0 ? 1.2 : 0.8;
+
+                // === 修改重點：縮小每次縮放幅度 ===
+                const factor = e.deltaY < 0 ? 1.08 : 0.925; // 放大 8%，縮小約 7.5%
+
                 const oldScale = currentScale;
                 currentScale *= factor;
+
+                // 限制最小與最大縮放倍率（避免太小或太大）
+                currentScale = Math.max(0.3, Math.min(currentScale, 8)); // 最小0.3倍，最大8倍
+
                 currentOffsetX = mouseX - (mouseX - currentOffsetX) * (currentScale / oldScale);
                 currentOffsetY = mouseY - (mouseY - currentOffsetY) * (currentScale / oldScale);
                 renderDrawing();
             });
 
-            // Touch events（行動裝置重點優化）
+            // Touch events
             canvas.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 if (e.touches.length === 1) {
                     const pos = getLogicalCoords(e.touches[0]);
+
+                    // === 新增：如果點在圖片範圍外，則不開始繪畫 ===
+                    if (pos.x < 0 || pos.x > drawingBaseCanvas.width ||
+                        pos.y < 0 || pos.y > drawingBaseCanvas.height) {
+                        return;
+                    }
+
                     if (currentTool === 'brush' || currentTool === 'eraser') {
                         isDrawingAnnotation = true;
                         lastLogicalX = pos.x;
@@ -978,7 +1017,7 @@
             drawingBaseCanvas.height = editCanvas.height;
             drawingBaseCanvas.getContext('2d').drawImage(editCanvas, 0, 0);
 
-            // 建立塗鴉層（與底圖同解析度）
+            // 建立塗鴉層
             annotationCanvas = document.createElement('canvas');
             annotationCanvas.width = drawingBaseCanvas.width;
             annotationCanvas.height = drawingBaseCanvas.height;
@@ -990,15 +1029,22 @@
                 const container = document.getElementById('drawing-canvas-container');
                 displayCanvas = document.getElementById('display-canvas');
 
-                // 設定顯示畫布大小（邏輯像素）
                 const logicalW = Math.max(300, container.clientWidth);
                 const logicalH = Math.max(300, container.clientHeight);
+
                 displayCtx = setupHighDPICanvas(displayCanvas, logicalW, logicalH);
 
-                // 計算初始縮放與位置（置中）
                 const imgW = drawingBaseCanvas.width;
                 const imgH = drawingBaseCanvas.height;
-                currentScale = Math.min(logicalW / imgW, logicalH / imgH);
+
+                // === 修改重點：讓圖片最大化延伸（減少留白）===
+                const scaleX = logicalW / imgW;
+                const scaleY = logicalH / imgH;
+
+                // 使用較大的縮放比例，讓圖片盡可能填滿畫布（類似 cover，但仍保持完整）
+                currentScale = Math.max(scaleX, scaleY) * 0.95;
+
+                // 置中
                 currentOffsetX = (logicalW - imgW * currentScale) / 2;
                 currentOffsetY = (logicalH - imgH * currentScale) / 2;
 
@@ -1085,22 +1131,14 @@
             if (input.oninput) input.oninput();
         }
 
-        // 快速設定預設科目名稱
+        // 快速設定預設科目名稱（直接替換）
         function setPresetName(subject) {
             const input = document.getElementById('rename-input');
-            const currentValue = input.value.trim();
 
-            // 如果已有內容，則在後面加上科目
-            if (currentValue) {
-                // 避免重複加入相同科目
-                if (!currentValue.includes(subject)) {
-                    input.value = currentValue + '_' + subject;
-                }
-            } else {
-                input.value = subject;
-            }
+            // 直接替換成該科目名稱
+            input.value = subject;
 
-            // 觸發 clear 按鈕顯示
+            // 觸發 clear 按鈕顯示更新
             if (input.oninput) input.oninput();
         }
 
